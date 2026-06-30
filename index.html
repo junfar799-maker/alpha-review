@@ -196,18 +196,24 @@ tbody td{padding:8px 11px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
     </div>
 
     <div class="card">
-      <div class="card-h"><span class="ic">🔑</span> AI 설정 (Claude API)</div>
+      <div class="card-h"><span class="ic">🔑</span> AI 설정 (Claude · ChatGPT)</div>
       <div class="card-b">
         <div class="frow">
           <label>Claude API 키</label>
-          <input type="password" id="apiKey" placeholder="sk-ant-... (여기에 붙여넣기)">
+          <input type="password" id="apiKey" placeholder="sk-ant-... (Claude 모델 선택 시 사용)">
           <span class="hint" id="apiKeyHint">인터넷으로 접속했을 땐 여기에 키를 한 번 붙여넣으면 이 브라우저(이 PC)에 저장돼 다음부터 자동 입력됩니다. 키는 외부로 안 보냅니다.</span>
+        </div>
+        <div class="frow">
+          <label>ChatGPT(OpenAI) API 키</label>
+          <input type="password" id="gptKey" placeholder="sk-... (GPT 모델 선택 시 사용)">
+          <span class="hint" id="gptKeyHint">GPT 모델을 고르면 이 키로 호출합니다. 이 브라우저(이 PC)에만 저장됩니다.</span>
         </div>
         <div class="frow">
           <label>모델</label>
           <select id="model">
-            <option value="claude-opus-4-8">Opus 4.8 (최고 품질·약 비쌈)</option>
-            <option value="claude-sonnet-4-6">Sonnet 4.6 (가성비)</option>
+            <option value="claude-opus-4-8">Claude Opus 4.8 (최고 품질·약 비쌈)</option>
+            <option value="claude-sonnet-4-6">Claude Sonnet 4.6 (가성비)</option>
+            <option value="gpt-5.5">GPT-5.5 (ChatGPT)</option>
           </select>
         </div>
       </div>
@@ -471,7 +477,8 @@ const PRODUCTS = {
   }
 };
 let curProduct = 'blackalpha';
-let AUTO_KEY = '';   // '클로드 api키.txt'에서 자동 로드(입력칸 없이 내부 보관)
+let AUTO_KEY = '';     // Claude 키: '클로드 api키.txt'에서 자동 로드
+let AUTO_GPT_KEY = ''; // OpenAI 키: '지피티 api키.txt'에서 자동 로드(있으면)
 
 /* ── 단문예시(내장) — 업로드로 교체 가능 ── */
 let SHORT_POOL = `가격대비품질이좋아요
@@ -1616,8 +1623,37 @@ async function callClaude(apiKey,model,system,userMsg){
   return { text, inTok, outTok:(u.output_tokens||0) };
 }
 
+/* ── ChatGPT(OpenAI) 호출 ── */
+async function callOpenAI(apiKey,model,system,userMsg){
+  const res=await fetch('https://api.openai.com/v1/chat/completions',{
+    method:'POST',
+    headers:{'content-type':'application/json','authorization':'Bearer '+apiKey},
+    // 최신 OpenAI 모델은 max_completion_tokens 사용(예전 max_tokens 아님). 추론모델이 토큰 먹어도 본문 나오게 넉넉히.
+    body:JSON.stringify({model,max_completion_tokens:2000,messages:[{role:'system',content:system},{role:'user',content:userMsg}]})
+  });
+  if(!res.ok){const e=await res.text();throw new Error('OpenAI '+res.status+': '+e.slice(0,200));}
+  const j=await res.json();
+  const text=((j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||'').trim();
+  const u=j.usage||{};
+  return { text, inTok:(u.prompt_tokens||0), outTok:(u.completion_tokens||0) };
+}
+/* 모델 문자열로 제공사 판별 */
+function providerOf(model){ return /^(gpt|o\d|chatgpt)/i.test(model||'')?'openai':'claude'; }
+/* 선택 모델에 맞는 키로 라우팅 호출 (키는 함수가 직접 읽음) */
+async function callModel(model,system,userMsg){
+  if(providerOf(model)==='openai'){
+    const k=(document.getElementById('gptKey').value||AUTO_GPT_KEY||'').trim();
+    if(!k)throw new Error('NO_GPT_KEY');
+    return callOpenAI(k,model,system,userMsg);
+  }
+  const k=(document.getElementById('apiKey').value||AUTO_KEY||'').trim();
+  if(!k)throw new Error('NO_CLAUDE_KEY');
+  return callClaude(k,model,system,userMsg);
+}
+
 /* ══════════════ 크레딧/비용 추정·정산 ══════════════ */
-const PRICING = { 'claude-opus-4-8':{in:5,out:25}, 'claude-sonnet-4-6':{in:3,out:15} }; // per 1M tokens (USD)
+const PRICING = { 'claude-opus-4-8':{in:5,out:25}, 'claude-sonnet-4-6':{in:3,out:15},
+  'gpt-5.5':{in:5,out:15} }; // per 1M tokens (USD) ★GPT-5.5 단가는 추정치 — OpenAI 실제 단가로 이 두 숫자만 고치면 됨
 const USD_KRW = 1550;                                   // 환율 1$ = 1550원 (사용자 지정)
 const EST_IN_PER_CALL=1850, EST_OUT_PER_CALL=150, EST_RETRY=1.4; // 후기 1건당 개략 토큰·재시도 계수
 function fmtUsd(u){ return '$'+(u<1?u.toFixed(4):u.toFixed(2)); }
@@ -1665,10 +1701,13 @@ function applyActualCost(totalIn,totalOut){
 
 /* ══════════════ 생성 메인 ══════════════ */
 async function handleGenerate(){
-  const apiKey=(document.getElementById('apiKey').value||AUTO_KEY||'').trim();
   const model=document.getElementById('model').value;
+  const prov=providerOf(model);
+  const apiKey = prov==='openai'
+    ? (document.getElementById('gptKey').value||AUTO_GPT_KEY||'').trim()
+    : (document.getElementById('apiKey').value||AUTO_KEY||'').trim();
   const N=Math.max(1,parseInt(document.getElementById('genCount').value)||30);
-  if(!apiKey){genStat('❌ Claude API 키를 입력하세요 (AI 설정 칸에 붙여넣기).','err');return;}
+  if(!apiKey){genStat(prov==='openai'?'❌ ChatGPT(OpenAI) API 키를 입력하세요 (AI 설정 칸에 붙여넣기).':'❌ Claude API 키를 입력하세요 (AI 설정 칸에 붙여넣기).','err');return;}
   const prod=PRODUCTS[curProduct];
 
   const shortCnt=Math.round(N*((parseInt(document.getElementById('shortRatio').value)||0)/100));
@@ -1698,7 +1737,7 @@ async function handleGenerate(){
       try{
         let sys=buildSystem(prod,r);
         if(attempt>0)sys+=REINFORCE;
-        const resp=await callClaude(apiKey,model,sys,'위 시스템 지시(중심 소재·서술 방식·화자·말투)에 맞춰, 이 제품을 사 먹은 사람이 직접 쓴 새 구매 후기 하나를 자연스럽게 창작해라. 예시를 베끼지 말고 새로. 후기 본문만 출력.');
+        const resp=await callModel(model,sys,'위 시스템 지시(중심 소재·서술 방식·화자·말투)에 맞춰, 이 제품을 사 먹은 사람이 직접 쓴 새 구매 후기 하나를 자연스럽게 창작해라. 예시를 베끼지 말고 새로. 후기 본문만 출력.');
         totalIn+=resp.inTok; totalOut+=resp.outTok;
         cleaned=cleanOutput(resp.text,prod);
         if(passesGates(cleaned,r,prod))break;   // 깨끗하면 통과(아니면 한 번 더)
@@ -1890,6 +1929,16 @@ window.addEventListener('DOMContentLoaded',()=>{
     const k=(t||'').replace(/^﻿/,'').trim();
     if(k){ AUTO_KEY=k; apiKeyEl.value=k; try{localStorage.setItem('alpha_apikey',k);}catch(e){}
       const h=document.getElementById('apiKeyHint'); if(h)h.innerHTML="✅ '클로드 api키.txt'에서 키를 자동으로 불러왔습니다(이 PC).";
+    }
+  }).catch(()=>{});
+  // ChatGPT(OpenAI) 키: 입력 저장 + localStorage 복원 + (있으면) '지피티 api키.txt' 자동 로드
+  const gptKeyEl=document.getElementById('gptKey');
+  gptKeyEl.addEventListener('input',()=>{AUTO_GPT_KEY=gptKeyEl.value.trim();try{localStorage.setItem('alpha_openai_key',AUTO_GPT_KEY);}catch(e){}});
+  try{const gk=localStorage.getItem('alpha_openai_key'); if(gk){AUTO_GPT_KEY=gk;gptKeyEl.value=gk;}}catch(e){}
+  fetch('지피티 api키.txt',{cache:'no-store'}).then(r=>r.ok?r.text():'').then(t=>{
+    const gk=(t||'').replace(/^﻿/,'').trim();
+    if(gk){ AUTO_GPT_KEY=gk; gptKeyEl.value=gk; try{localStorage.setItem('alpha_openai_key',gk);}catch(e){}
+      const h=document.getElementById('gptKeyHint'); if(h)h.innerHTML="✅ '지피티 api키.txt'에서 키를 자동으로 불러왔습니다(이 PC).";
     }
   }).catch(()=>{});
 });
