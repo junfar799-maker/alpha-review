@@ -1444,6 +1444,9 @@ function cleanOutputHair(t,prod){
   t=t.replace(/\s*[\(（]?\s*(참고로|요청하신|주의\s*[:：]|아래는|다음은|위 후기|상기).*$/,'');
   t=t.replace(/[\(（]\s*\d+\s*자\s*[\)）]/g,'').replace(/\s*\d+\s*자\s*\.{0,3}\s*$/,'');
   t=t.replace(/\s*(이모티콘|이모지)[^.!?]*$/,'');
+  // 천지인 과도 적용 체크 — 모델이 단어마다 점(.)을 찍어 보냈으면(절반 초과) 격번으로 절반만 복원 (v11 validateAndClean 이식)
+  { const dotW=(t.match(/\S+\.\S*/g)||[]).length, totW=t.split(/\s+/).filter(Boolean).length;
+    if(dotW>0&&totW>0&&dotW/totW>0.5){ let cnt=0; t=t.replace(/(\S+)\./g,(mm,p1)=>{cnt++;return cnt%2===0?mm:p1+' ';}).replace(/\s+/g,' ').trim(); } }
   t=t.replace(/\s*\.(?=\s|$)/g,' ').replace(/\.\s*$/,'');
   t=t.replace(/\s+([!?,~…])/g,'$1').replace(/\.{4,}/g,'...');
   t=t.replace(/[\(（\s\-,·]+$/,'').replace(/\s{2,}/g,' ').trim().replace(/^["'“”]+|["'“”]+$/g,'');
