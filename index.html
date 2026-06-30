@@ -459,6 +459,15 @@ const PRODUCTS = {
     desc:'다이어트 보조제 · 사과맛 씹어먹는 정제 · 식약처 HACCP · 식전 한 알 · 식욕↓/포만감/야식↓',
     ingredients:['복합효소','애사비','식이팽창 성분'],
     forbidden:['정력','발기','성기','강직','조루','지속시간','탈모','두피','모발','자지','좆','거시기','꽈추','아랫도리']
+  },
+  rootium: {
+    type:'hair',
+    name:'루티움',
+    code:'P000000O',
+    kind:'탈모·모발 영양제(소형환)',
+    desc:'탈모·모발 영양제 · 소형환(한방 향) · 90g 1개월분 · 검정콩/맥주효모/비오틴/특허성분 · 머리빠짐↓·정수리·두피',
+    ingredients:['검정콩','맥주효모','비오틴','특허 성분','흑임자','흑삼','어성초','한련초'],
+    forbidden:['정력','발기','성기','강직','조루','다이어트','체중','감량','살 빠']
   }
 };
 let curProduct = 'blackalpha';
@@ -861,6 +870,7 @@ function ingBadRe(prod){
 // 생성된(정리된) 후기가 모든 게이트를 통과하면 true. 통과 못하면 재생성 대상.
 function passesGates(t,r,prod){
   if(prod&&prod.type==='diet')return passesGatesDiet(t,r,prod);
+  if(prod&&prod.type==='hair')return passesGatesHair(t,r,prod);
   if(!t)return false;
   if(/[A-Za-z]/.test(t))return false;                                   // 영어
   if((prod.forbidden||[]).some(w=>t.includes(w)))return false;          // 제품 금지어
@@ -905,6 +915,7 @@ function stripMeta(t){
 /* ── 후처리: Clean-Output (PowerShell jakmun_gen_opus.ps1 Clean-Output 포팅) ── */
 function cleanOutput(t,prod){
   if(prod&&prod.type==='diet')return cleanOutputDiet(t,prod);
+  if(prod&&prod.type==='hair')return cleanOutputHair(t,prod);
   if(!t)return'';
   t=t.trim();
   // 성분 원산지 괄호 -> 자연 형태('블랙마카(페루산)' -> '페루산 블랙마카')
@@ -1216,9 +1227,162 @@ function passesGatesDiet(t,r,prod){
   return true;
 }
 
+/* ══════════════ 루티움(탈모·모발) 전용 분기 ══════════════ */
+const HAIR_PERSONAS_F=['20대 초반 여성, 헬스·다이어트 후 탈모, 성분 꼼꼼히 확인','20대 후반 여성, 잦은 염색·펌으로 머릿결·탈모 고민','20대 후반 여성, 출산 후 산후 탈모로 한 움큼씩 빠짐','30대 초반 여성, 워킹맘, 육아 스트레스, 정수리·가르마 고민','30대 후반 여성, 이른 갱년기·호르몬 변화, 한방 성분 선호','40대 여성, 갱년기 탈모+두피 열감, 한의원 병행','40대 여성, 미용실에서 머리숱 지적받고 시작','50대 여성, 정수리 비치는 게 신경 쓰여서','60대 여성, 머리숱 줄어 파마가 안 산다고, 구식 맞춤법'];
+const HAIR_PERSONAS_M=['20대 초반 남성, 탈모 가족력 예방 목적, 성분 검색 후 결정, 반말 음슴','20대 후반 남성, M자 시작, 분석적·건조한 톤','30대 남성, 직장인, 과로·스트레스, 정수리 고민, 짧고 직설','30대 후반 남성, 이마선 후퇴, 탈모약 부작용 걱정으로 영양제 택함','40대 초반 남성, 관리직, M자+정수리 동시, 자연 성분 선호, 단호','40대 남성, 탈모약 장기복용 부담돼 영양제로 전환','50대 남성, 탈모약 부작용 경험 후 자연 성분으로, 점잖음','60대 남성, 머리숱 줄어 고민, 천천히·옛 말투, 구식 맞춤법'];
+const HAIR_FOCUS=['머리 감을 때 빠지는 양이 줄어든 느낌','정수리 휑한 게 덜 신경 쓰임','이마선·M자 부분 잔머리가 올라오는 느낌','가르마 비치던 게 덜함','두피 열감·가려움이 가라앉음','머릿결이 굵고 힘 있어진 느낌','새로 올라오는 잔머리','빗질할 때 빠지던 머리카락이 줄음','미용실에서 머리숱 늘었다는 말 들음'];
+const HAIR_DRUGS=['프로페시아','피나스테리드','두타스테리드','아보다트','미녹시딜'];
+const HAIR_DRUG_REASONS=['부작용이 무서워서','평생 먹어야 하는 게 부담돼서','병원 처방받으러 다니기 번거로워서','장기 복용이 걱정돼서'];
+const HAIR_OPENERS=['머리 감을 때마다','요즘 들어','몇 달 전부터','나이 드니까','출산하고 나서','스트레스가 심해서','거울 보다가','미용실 갔다가'];
+const HAIR_BUILTIN_BY_END={
+  1:['머리 감을 때 빠지는 게 줄어든 느낌이에요','정수리가 휑했는데 요즘 좀 나아요','한방 향이 은은해서 먹기 편해요','꾸준히 챙겨 먹고 있어요','비오틴 들어있어 믿고 먹어요','배송도 빠르고 좋아요'],
+  2:['머리 빠지는 게 줄어든 느낌임','정수리 휑하던 게 좀 나아진 듯','한방 향 은은해서 먹을 만함','꾸준히 챙겨 먹는 중임','비오틴 들어있어 믿고 먹음','배송 빠르고 좋음'],
+  3:['머리 감을 때 빠지는 게 줄었습니다','정수리가 휑했는데 나아졌습니다','한방 향이 은은해서 먹기 편합니다','꾸준히 챙겨 먹고 있습니다','비오틴 들어있어 믿고 먹습니다','배송 빠르고 좋습니다']
+};
+function styleShotsForHair(useEnd){
+  let m=SHORT_POOL.filter(s=>END_RES[useEnd].test(s));
+  if(m.length<8)m=m.concat(HAIR_BUILTIN_BY_END[useEnd]);
+  return m.length?m:HAIR_BUILTIN_BY_END[useEnd];
+}
+/* 이모지: 젊은 여성 위주, 남성·고령 거의/전혀 (세라펙스 Get-Emo 변형) */
+function getEmoHair(persona,female){
+  let band=30;
+  if(/60대|70대/.test(persona))band=60; else if(/50대/.test(persona))band=50;
+  else if(/40대/.test(persona))band=40; else if(/30대\s*후반/.test(persona))band=35;
+  else if(/30대/.test(persona))band=30; else if(/20대\s*초반/.test(persona))band=22;
+  else if(/20대/.test(persona))band=27;
+  if(!female){
+    if(band>=30)return'';
+    if((rand(100)+1)>22)return'';
+    let tok=pick(['👍','😂','ㅋ','ㅎ','~']);
+    if(/^[ㅋㅎ]$/.test(tok))tok=tok.repeat(rand(4)+1);
+    return /^[\^~!*]/.test(tok)?tok:' '+tok;
+  }
+  const M={
+    22:[55,80,['💖','💗','💕','🩷','💞','♥','♡','🥰','😍','🥹','😭','😊','✨','🌸','🙌'],['^^','^-^','*^^*','ㅎ','ㅋ','~','~~','!',':)',';;','bb']],
+    27:[42,68,['💖','💗','💕','♥','🥰','😍','😊','✨','🌸'],['^^','^-^','ㅎ','ㅋ','~','!',':)',';;']],
+    30:[26,60,['😊','💗','♥','🥰','✨','🙂'],['^^','ㅎ','ㅋ','~','!']],
+    35:[16,55,['😊','🙂','✨','♥'],['^^','~','ㅎ','!']],
+    40:[8,0,[],['^^','~','ㅎ']],50:[4,0,[],['^^','~']],60:[2,0,[],['^^']]};
+  const c=M[band]||M[30];
+  if((rand(100)+1)>c[0])return'';
+  if(c[2].length&&(rand(100)+1)<=c[1])return ' '+pick(c[2]);
+  let tok=pick(c[3]);
+  if(/^[ㅋㅎ]$/.test(tok))tok=tok.repeat(rand(6)+1);
+  return /^[\^~!*bB]/.test(tok)?tok:' '+tok;
+}
+function rollRecipeHair(prod){
+  const r={lowEffort:false};
+  const female=chance(55);
+  r.gender=female?'female':'male';
+  r.persona=female?pick(HAIR_PERSONAS_F):pick(HAIR_PERSONAS_M);
+  r.narrator='본인';
+  const old=/50대|60대/.test(r.persona);
+  if(OPT.end>=4){
+    const e=rand(100)+1;
+    if(female) r.useEnd=e<=70?1:e<=88?3:2;
+    else r.useEnd=old?(e<=45?1:e<=80?3:1):(e<=70?2:e<=90?3:1);
+  } else r.useEnd=OPT.end;
+  const roll=rand(100)+1;
+  r.isDelivery=roll<=18;
+  r.isDrug=(!r.isDelivery)&&roll<=33;
+  if(r.isDrug){ r.drugPick=pick(HAIR_DRUGS); r.drugReason=pick(HAIR_DRUG_REASONS); }
+  r.mentionIng=(!r.isDelivery)&&chance(32);
+  if(r.mentionIng)r.ingPick=pick(prod.ingredients);
+  r.focusPick=pick(HAIR_FOCUS);
+  r.banList=shuf(CLICHES).slice(0,pick([3,4,5])).join(', ');
+  r.openerHint=shuf(HAIR_OPENERS).slice(0,3).join("', '");
+  if(OPT.len===1){ r.targetLen=rand(11)+14; r.cap=r.targetLen+8; r.lenText='아주 짧게 한 문장 안팎으로.'; }
+  else if(OPT.len===2){ r.targetLen=rand(31)+50; r.cap=r.targetLen+25; r.lenText='조금 길어도 되지만 광고처럼 늘이진 마라.'; }
+  else { r.targetLen=rand(28)+18; r.cap=r.targetLen+10; r.lenText='배경·계기는 짧게, 머리 변화 체감 위주로.'; }
+  r.shots=shuf(styleShotsForHair(r.useEnd)).slice(0,5);
+  r.shipTalk=(!r.isDelivery)&&(!r.isDrug)&&chance(10);
+  r.giftMode=chance(12);
+  r.useEupnida=false;
+  r.elderForce=/50대|60대/.test(r.persona)&&chance(20);
+  r.emo=getEmoHair(r.persona,female);
+  return r;
+}
+function buildSystemHair(prod,r){
+  const shotBlock=r.shots.map(s=>'- '+s).join('\n');
+  let s=`너는 온라인 쇼핑몰에서 탈모·모발 영양제 '${prod.name}'을 사서 먹어본 평범한 한국 사람이다(예: ${r.persona}). 너는 후기 작가가 아니라 귀찮은데 그냥 대충 별점 후기 남기는 진짜 구매자다.
+[제품] '${prod.name}'은(는) 90g 1박스 1개월분, 판매가 약 59,800원(정상가 8만원대)의 프리미엄 탈모 영양제다. 제형은 작고 동그란 한방 '소형환'(먹을 때 한방 향이 은은하게 남, 캡슐·알약·정제 아님), 일반 원형 영양제통에 담겨 있다. 핵심 성분은 국내산 검정콩·독일산 맥주효모·프랑스산 비오틴·국내산 특허원료(특허받은 한방 복합 원료). 보조로 흑임자·흑삼·어성초·한련초가 가끔 들어간다.
+★말투 규칙(가장 중요): ${END_TEXTS[r.useEnd]} 아래 예시에 다른 말투가 섞여 있어도 너는 무조건 ${END_NAMES[r.useEnd]} 로만 쓴다.
+반드시 지킬 것:
+(1) 광고·홍보 문구처럼 쓰지 마라('강추/대박/강력 추천/추천드립니다/만족스럽습니다' 등 금지).
+(2) 번역기·자기소개서 같은 딱딱한 문어체 금지. 카톡 하듯 짧고 툭툭 끊어 써라.
+(3) 영어·외국어 단어 절대 금지. 전부 한글로만.
+(4) 한 후기 안에서 같은 단어를 두 번 이상 반복하지 마라.
+(5) 느낌표 남발·이모지 금지(이모티콘은 시스템이 따로 붙인다). 별점 언급 금지. 문장 끝 마침표(.) 쓰지 마라(…만 허용).
+(8) ★절대 금지: '한 알/두 알/몇 알/알씩'(환 개수)→'한 번에/매일/꾸준히/챙겨 먹고'로. '배수구'→'머리 감을 때/빗질할 때'로. '휴대(들고 다니기) 편하다'. '주사/주삿바늘/위고비/마운자로/삭센다'(루티움은 먹는 영양제). 특허원료의 원료명을 그대로 쓰지 말고 '특허 성분/특허받은 원료'로만.
+(9) 제형은 소형환이다. 캡슐·알약·정제·씹어먹기·짜먹기 표현 금지. 한방 향은 가끔 한 마디만(맛 평가로 길게 늘어놓기 금지).
+(10) ★탈모 증상은 반드시 '복용 전 과거형'으로(예: '예전엔 한 움큼씩 빠졌었는데','빠져서 고민이었는데') 쓰고, 개선은 '지금은 줄었어요'처럼 분리해라. 루티움을 먹고 머리가 빠지는 것처럼 읽히게 절대 쓰지 마라. '빠지다' 같은 서술어를 생략하지 마라.
+(11) 성분은 언급 안 해도 된다. 언급 시 1~2개만. 검정콩·검은콩·서리태는 같은 콩류라 한 후기에 둘 이상 동시 금지.
+(12) 긍정·만족 톤만. 효과없음·실망·불만·부작용·환불·후회·'잘 모르겠다' 금지.
+(13) 자문자답·자기질문('괜찮냐고?','어떠냐고?') 금지. '괜찮아요/괜찮음'처럼 단정적으로. 재치·말장난·비유 금지.
+(14) ★모든 문장을 종결어미(~요/~어요/~음/~함/~다/~네요/~더라고요 등)로 끝맺어라. 연결어미(~고/~서/~는데/~다고/~려고)나 부사로 문장을 끝내지 마라.
+(6) ${r.lenText}
+(7) 후기 본문 한 개만 출력. 머리말·설명·따옴표·번호·괄호 설명·글자수 표기 금지. 곧바로 후기 본문만.`;
+  if(r.isDelivery){ s+=`\n이번 후기는 효과·성분 얘기 없이 '배송/포장/도착'만 짧게 한두 마디로 끝낸다(예: '배송 빠르네요 포장도 꼼꼼해요'). 머리 변화·효과는 넣지 마라.`; }
+  else if(r.isDrug){ s+=`\n이번 후기는 먹는 탈모약 '${r.drugPick}' 대신 영양제 루티움을 택한 맥락으로 푼다('${r.drugReason}' 같은 계기). 토씨까지 베끼지 말고 네 말로. ${r.gender==='male'?"부작용으로 '발기부전·성기능 걱정'을 한 마디 곁들여도 된다(남성 본인 후기라서).":"★여성 후기이니 발기부전·성기능 얘기는 절대 쓰지 마라."} 주사·위고비·마운자로 같은 표현은 절대 쓰지 마라(루티움은 먹는 영양제).`; }
+  else { s+=`\n이번 후기는 '${r.focusPick}'를 중심 소재로 자연스럽게 풀어라(이 변화 위주로, 여러 효과를 한꺼번에 나열하지 마라).`; }
+  s+=`\n★문장 첫머리를 효과 표현으로 시작하지 말고 계기·시간·상황으로 다양하게 열어라(예: '${r.openerHint}').`;
+  if(r.mentionIng)s+=`\n성분 '${r.ingPick}'을 자연스럽게 한 번만 툭 언급한다(예: '${r.ingPick} 들어있어서 믿고 먹어요'). 효능 설명을 길게 하지 마라.${r.ingPick==='특허 성분'?" 특허원료는 '특허 성분/특허받은 원료'로만, 원료명 직접 표기 금지.":''}`;
+  if(r.gender==='female'){
+    if(/20대\s*초반/.test(r.persona))s+=`\n20대 초반 여성 애교체 가끔(~해용/~네용/~당/~징). 과용 금지. '읍니다' 금지.`;
+    else if(/40대|50대|60대/.test(r.persona))s+=`\n정중하고 담백하게 '~어요/~더라고요'체로. 갱년기·한방 성분에 관심. ★'읍니다' 옛 표기 금지(구식 맞춤법은 됬어요/먹엇어요 정도만 가끔).`;
+    s+=`\n여성이라 '~것 같아요/~더라구요' 완곡한 표현과 생활감 있는 말투를 자연스럽게.`;
+  } else {
+    if(/20대|30대/.test(r.persona))s+=`\n젊은 남성이라 '~임/~함/~듯/~됨'처럼 짧고 직설적·건조하게. 성분 따지는 분석적 톤도 좋다.`;
+    else if(/50대/.test(r.persona))s+=`\n50대 남성이라 '~요/~습니다/~더군요'로 점잖고 경험 묻어나게.`;
+    else if(/60대/.test(r.persona))s+=`\n60대 남성이라 천천히 옛 말투로 '~습니다/~요'. 구식 맞춤법(됬습니다) 가끔. 여성 감탄사·이모티콘 절대 금지.`;
+    else s+=`\n40대 남성이라 담백하게, '~임/~함'과 '~습니다'를 가끔 혼용.`;
+  }
+  if(r.shipTalk)s+=`\n배송·포장 칭찬이나 사은품을 더 달라고 요청하는 말을 한 마디 자연스럽게(예: '배송 빠르네요','서비스도 좀 챙겨주세요'). 이미 받은 것처럼 쓰지 말고 달라고 조르는 쪽으로.`;
+  if(r.giftMode)s+=`\n가족·지인이 추천하거나 사준 맥락을 한 번 자연스럽게(딸이 사줘서·자식이 챙겨줘서·친구 추천 등). 단 먹는 사람은 본인.`;
+  s+=`\n★어휘 다양화: 흔한 상투어(${r.banList})는 이번 후기에서 쓰지 마라. '은은하게·미용실 원장님이·소오름·인생템·갓생·역대급·탑티어'도 남발 금지.`;
+  s+=`\n아래는 '딱 이런 톤·길이·맞춤법'이라는 실제 후기 예시다. 내용은 베끼지 말고 말투·분위기만 흉내 내라:\n${shotBlock}`;
+  return s;
+}
+function cleanOutputHair(t,prod){
+  if(!t)return'';
+  t=t.trim();
+  t=t.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}️‍❤♥♡⭐]/gu,'');
+  t=t.replace(/_/g,'').replace(/\s*#[^\s#]+/g,'').replace(/[一-鿿]/g,'');
+  t=t.replace(/。/g,' ').replace(/[，、]/g,', ').replace(/！/g,'!').replace(/？/g,'?').replace(/；/g,'; ').replace(/：/g,': ');
+  t=stripMeta(t);
+  t=t.replace(/\s*\r?\n\s*/g,' ').replace(/[!！]{2,}/g,'!').replace(/[~∼]{2,}/g,'~');
+  for(const w of ADWORDS)t=t.split(w).join('');
+  t=t.replace(/한\s*알/g,'한 번').replace(/두\s*알/g,'두 번').replace(/세\s*알/g,'세 번').replace(/네\s*알/g,'네 번').replace(/몇\s*알/g,'몇 번').replace(/(\d+)\s*알/g,'$1번').replace(/알씩/g,'번씩');
+  t=t.replace(/배수구/g,'머리 감을 때');
+  t=t.replace(/티움\s*흑방\s*복합물|흑방\s*복합물/g,'특허 성분');
+  t=t.replace(/[\(（][^)）]*(권장|예시|참고|주의|설명|반영|지시|요청|언급|표현|자연스럽|강조|작성|묘사|문구|드러)[^)）]*[\)）]/g,'');
+  t=t.replace(/\s*[\(（]?\s*(참고로|요청하신|주의\s*[:：]|아래는|다음은|위 후기|상기).*$/,'');
+  t=t.replace(/[\(（]\s*\d+\s*자\s*[\)）]/g,'').replace(/\s*\d+\s*자\s*\.{0,3}\s*$/,'');
+  t=t.replace(/\s*(이모티콘|이모지)[^.!?]*$/,'');
+  t=t.replace(/\s*\.(?=\s|$)/g,' ');
+  t=t.replace(/\s+([!?,~…])/g,'$1').replace(/\.{4,}/g,'...');
+  t=t.replace(/[\(（\s\-,·]+$/,'').replace(/\s{2,}/g,' ').trim().replace(/^["'“”]+|["'“”]+$/g,'');
+  t=t.replace(/^[\s\\\-_=~·.,!?ㆍ*•]+/,'');
+  return t;
+}
+function passesGatesHair(t,r,prod){
+  if(!t)return false;
+  if(/[A-Za-z]/.test(t))return false;
+  if(/배수구|티움\s*흑방|흑방\s*복합물/.test(t))return false;
+  if(/주사|위고비|마운자로|삭센다/.test(t))return false;
+  if(/한\s*알|두\s*알|세\s*알|알씩/.test(t))return false;
+  if(/완치|발모제|모발\s*이식/.test(t))return false;
+  if(/다이어트|체중|감량|살\s*빠|정력/.test(t))return false;
+  if(r.gender==='female'&&/발기|성기능/.test(t))return false;
+  if(/효과\s*없|실망|불만|환불|반품|후회|별로|속았|그저\s*그|잘\s*모르(겠|겟)/.test(t))return false;
+  return true;
+}
+
 /* ── 시스템 프롬프트 빌더 ── */
 function buildSystem(prod,r){
   if(prod.type==='diet')return buildSystemDiet(prod,r);
+  if(prod.type==='hair')return buildSystemHair(prod,r);
   const shotBlock=r.shots.map(s=>'- '+s).join('\n');
   const head = r.narrator==='아내'
     ? `너는 ${prod.kind} '${prod.name}'을 남편에게 챙겨 먹이는 평범한 한국 아내다(남편은 ${r.persona}). 남편의 밤일·컨디션 변화를 보고 점잖고 담백하게 별점 후기를 남긴다. 노골적인 비속어나 적나라한 묘사는 쓰지 않는다.`
@@ -1279,6 +1443,7 @@ ${prod.sexTexts[OPT.sex]}
 let dickRecent=[];
 function rollRecipe(prod,shotPool,longPool){
   if(prod.type==='diet')return rollRecipeDiet(prod);
+  if(prod.type==='hair')return rollRecipeHair(prod);
   const r={};
   // 길이/성의없음
   r.lowEffort=false;
@@ -1420,6 +1585,8 @@ async function handleGenerate(){
   // 재시도 강화 프롬프트(2회차부터) — PowerShell try>0 보강과 동일
   const REINFORCE = prod.type==='diet'
     ? "\n절대 영어 단어를 쓰지 마라(GLP-1 등도 금지, 비만약은 '위고비'·'마운자로'만 한글로). 정력·발기·탈모 같은 이 제품과 무관한 단어, '지방분해/치료/완치/O kg 감량' 같은 의약품식 표현 금지. 실망·불만·'잘 모르겠다' 같은 부정·불확실 표현도 금지하고 긍정 후기로만 써라."
+    : prod.type==='hair'
+    ? "\n절대 영어 단어를 쓰지 마라. 전부 한글로. '한 알/두 알/알씩'(환 개수)·'배수구'·'주사/위고비/마운자로'·원료명 '티움흑방복합물' 직접표기 금지. 머리가 빠지는 건 항상 '복용 전 과거'로만 쓰고 제품 먹고 빠진 것처럼 쓰지 마라. 정력·다이어트 등 무관한 단어, 실망·불만·'잘 모르겠다' 같은 부정·불확실 표현도 금지하고 긍정 후기로만 써라."
     : "\n절대 영어 단어를 쓰지 마라. 전부 한글로만 써라. 탈모·치료·다이어트 등 이 제품과 무관한 단어는 쓰지 마라. 맛·향·냄새·식감(맛있다/쓰다/비리다/냄새 등) 평가도 한 마디도 쓰지 마라. 자녀·미성년이 이 제품을 먹는 설정은 절대 금지(먹는 사람은 성인 남성). '딸이 사줬다'는 설정도 금지.";
   let made=0, guard=0; const maxGuard=genCnt*4+10;  // 부족분 재생성 루프(완전 동일/게이트 실패 시 새로). 무한루프 방지 상한.
   setProg(0,genCnt,'AI 생성 준비...');
@@ -1521,9 +1688,9 @@ function renderProdBtns(){
   updateProdUI();
 }
 function updateProdUI(){
-  const p=PRODUCTS[curProduct], diet=p.type==='diet';
+  const p=PRODUCTS[curProduct];
   document.getElementById('prodDesc').textContent=p.desc;
-  const sx=document.getElementById('segSex'); const row=sx&&sx.closest('.frow'); if(row)row.style.display=diet?'none':''; // 다이어트 제품은 '성적 표현 수위' 숨김
+  const sx=document.getElementById('segSex'); const row=sx&&sx.closest('.frow'); if(row)row.style.display=(p.type==='male')?'':'none'; // 정력제(male)만 '성적 표현 수위' 노출
 }
 function loadShort(e){
   const f=e.target.files[0]; if(!f)return;
