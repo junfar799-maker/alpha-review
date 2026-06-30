@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>알파 통합 리뷰 생성기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --blue:#2563eb;--blue-d:#1d4ed8;--blue-l:#dbeafe;
+  --indigo:#4f46e5;--green:#059669;--green-l:#d1fae5;
+  --amber:#d97706;--amber-l:#fef3c7;
+  --red:#dc2626;--red-l:#fee2e2;
+  --bg:#f1f5f9;--card:#fff;--border:#e2e8f0;
+  --text:#1e293b;--text2:#475569;--text3:#94a3b8;
+  --r:10px;--sh:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo',system-ui,sans-serif;font-size:14px;background:var(--bg);color:var(--text);min-height:100vh}
+
+.hdr{background:linear-gradient(135deg,#1e3a8a 0%,#3730a3 60%,#1e40af 100%);color:#fff;padding:18px 28px}
+.hdr-inner{max-width:1520px;margin:0 auto;display:flex;align-items:center;gap:14px}
+.hdr-icon{font-size:28px}
+.hdr h1{font-size:19px;font-weight:800;letter-spacing:-.5px}
+.badge{display:inline-flex;align-items:center;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle}
+.hdr p{font-size:12px;opacity:.7;margin-top:3px}
+
+/* ── 탭 ── */
+.tabs{max-width:1520px;margin:0 auto;padding:0 20px;display:flex;gap:6px;margin-top:14px}
+.tab{padding:11px 22px;background:#e2e8f0;border:none;border-radius:10px 10px 0 0;font-size:14px;font-weight:800;cursor:pointer;color:var(--text2);font-family:inherit;transition:all .15s}
+.tab.active{background:var(--card);color:var(--blue)}
+.tab:not(.active):hover{background:#cbd5e1}
+.tabpane{display:none}
+.tabpane.active{display:block}
+
+.layout{max-width:1520px;margin:0 auto;padding:20px;display:grid;grid-template-columns:380px 1fr;gap:18px;align-items:start}
+@media(max-width:980px){.layout{grid-template-columns:1fr}}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden;margin-bottom:14px}
+.card:last-child{margin-bottom:0}
+.card-h{display:flex;align-items:center;gap:7px;padding:12px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:12px;background:#f8fafc;color:var(--text);flex-wrap:wrap}
+.card-h .ic{font-size:15px}
+.card-b{padding:15px 16px}
+
+.frow{display:flex;flex-direction:column;gap:4px;margin-bottom:13px}
+.frow:last-child{margin-bottom:0}
+.frow label{font-size:11px;font-weight:700;color:var(--text2)}
+.frow input[type=number],.frow input[type=date],.frow input[type=text],.frow input[type=password],.frow textarea,.frow select{
+  border:1px solid var(--border);border-radius:7px;padding:7px 10px;
+  font-size:13px;color:var(--text);background:#fff;font-family:inherit;transition:border-color .2s}
+.frow input:focus,.frow textarea:focus,.frow select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.frow textarea{min-height:120px;resize:vertical;font-size:12px;line-height:1.65}
+.hint{font-size:11px;color:var(--text3);margin-top:3px;display:block;line-height:1.5}
+
+.sl-wrap{display:flex;align-items:center;gap:10px}
+.sl-wrap input[type=range]{flex:1;-webkit-appearance:none;height:4px;border-radius:2px;background:var(--border);outline:none}
+.sl-wrap input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;background:var(--blue);cursor:pointer;box-shadow:0 0 0 3px rgba(37,99,235,.18)}
+.sl-val{min-width:54px;text-align:right;font-weight:800;color:var(--blue);font-size:13px}
+
+.seg-ctrl{display:flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:13px;flex-wrap:wrap}
+.seg-btn{flex:1;padding:8px 6px;font-size:12px;font-weight:700;cursor:pointer;background:#fff;border:none;border-right:1.5px solid var(--border);font-family:inherit;color:var(--text2);transition:all .15s;min-width:0}
+.seg-btn:last-child{border-right:none}
+.seg-btn.active{background:var(--blue);color:#fff}
+.seg-btn:not(.active):hover{background:var(--blue-l);color:var(--blue)}
+
+.prod-btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}
+.prod-btn{padding:6px 14px;background:#f8fafc;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;color:var(--text2);font-family:inherit;transition:all .15s}
+.prod-btn:hover{background:var(--blue-l);color:var(--blue);border-color:var(--blue)}
+.prod-btn.selected{background:var(--blue);color:#fff;border-color:var(--blue)}
+.prod-btn.addnew{border-style:dashed;color:var(--text3)}
+
+.gen-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh);padding:24px;text-align:center}
+.gen-card h2{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:14px}
+.btn-gen{display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,var(--blue) 0%,var(--indigo) 100%);color:#fff;border:none;border-radius:10px;padding:14px 44px;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;letter-spacing:-.3px;box-shadow:0 4px 14px rgba(37,99,235,.3);transition:all .2s}
+.btn-gen:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 20px rgba(37,99,235,.38)}
+.btn-gen:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.spinner{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .75s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.gen-hint{font-size:11px;color:var(--text3);margin-top:10px}
+
+.progress{margin-top:14px;display:none}
+.progress.show{display:block}
+.prog-track{height:10px;background:var(--border);border-radius:5px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--indigo));width:0%;transition:width .3s}
+.prog-txt{font-size:12px;color:var(--text2);margin-top:6px;font-weight:600}
+
+.status{display:flex;align-items:center;gap:7px;font-size:13px;margin-top:13px;padding:10px 14px;border-radius:8px;font-weight:500;justify-content:center}
+.status.ok{background:var(--green-l);color:var(--green)}
+.status.err{background:var(--red-l);color:var(--red)}
+.status.loading{background:var(--blue-l);color:var(--blue)}
+
+.rev-wrap{max-height:520px;overflow-y:auto;padding-right:3px}
+.rev-item{display:flex;align-items:flex-start;gap:8px;padding:9px 11px;border-bottom:1px solid #f1f5f9}
+.rev-item:hover{background:#f8fafc}
+.rev-num{min-width:26px;height:22px;display:flex;align-items:center;justify-content:center;background:var(--blue-l);color:var(--blue);font-size:10px;font-weight:800;border-radius:5px;flex-shrink:0;margin-top:1px}
+.rev-tag{font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;flex-shrink:0;margin-top:2px;white-space:nowrap}
+.rev-tag.gen{background:#ede9fe;color:#6d28d9}
+.rev-tag.short{background:var(--green-l);color:var(--green)}
+.rev-txt{flex:1;font-size:13px;line-height:1.5;word-break:break-all}
+
+.btn-dl{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:var(--green);color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 4px 12px rgba(5,150,105,.25);transition:all .2s}
+.btn-dl:hover:not(:disabled){background:#047857;transform:translateY(-1px)}
+.btn-dl:disabled{opacity:.6;cursor:not-allowed}
+.btn-send{background:linear-gradient(135deg,var(--indigo),#7c3aed)}
+.btn-send:hover:not(:disabled){background:#6d28d9}
+
+/* ── 변환기(기존) 전용 ── */
+.tz-list{display:flex;flex-direction:column;gap:7px;margin-bottom:8px}
+.tz-item{display:flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:7px 10px}
+.tz-item input[type=time]{flex:1;border:none;background:transparent;font-size:13px;font-family:inherit;color:var(--text);outline:none}
+.tz-sep{color:var(--text3);font-size:11px;white-space:nowrap}
+.btn-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;line-height:1;padding:0 3px;border-radius:4px;transition:color .15s;flex-shrink:0}
+.btn-del:hover{color:var(--red)}
+.btn-add{display:flex;align-items:center;justify-content:center;gap:5px;background:none;border:1.5px dashed var(--border);border-radius:7px;color:var(--text3);font-size:12px;font-weight:600;padding:8px;cursor:pointer;width:100%;font-family:inherit;transition:all .2s}
+.btn-add:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-l)}
+.up-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+.btn-up{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;background:#f8fafc;border:1px solid var(--border);border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);font-family:inherit;transition:all .2s;white-space:nowrap}
+.btn-up:hover{background:var(--blue-l);color:var(--blue);border-color:var(--blue)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.nv-wrap{max-height:360px;overflow-y:auto;padding-right:3px;margin-bottom:6px}
+.nv-list{display:flex;flex-direction:column;gap:6px}
+.nv-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 16px;color:var(--text3);font-size:12px;text-align:center;gap:7px;border:1.5px dashed var(--border);border-radius:8px;background:#f8fafc;line-height:1.6}
+.nv-empty .ei{font-size:28px}
+.nv-item{display:flex;align-items:center;gap:7px;padding:8px 10px;background:#f8fafc;border:1px solid var(--border);border-radius:8px}
+.nv-num{min-width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:var(--blue-l);color:var(--blue);font-size:10px;font-weight:800;border-radius:5px;flex-shrink:0}
+.nv-text{flex:1;border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:12px;font-family:inherit;color:var(--text);background:#fff;min-width:0}
+.nv-text:focus{outline:none;border-color:var(--blue)}
+.nv-sel{border:1px solid var(--border);border-radius:6px;padding:5px;font-size:12px;font-family:inherit;background:#fff;cursor:pointer;flex-shrink:0;width:82px}
+.nv-sel.r5{color:var(--amber);border-color:#fde68a;background:#fffbeb;font-weight:700}
+.nv-sel.r4{color:var(--blue);border-color:var(--blue-l);background:#eff6ff;font-weight:700}
+.nv-footer{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 11px;background:#f8fafc;border-radius:7px;font-size:11px;color:var(--text2);flex-wrap:wrap}
+.nv-tag{display:inline-flex;align-items:center;gap:3px;background:#fff;border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-weight:600}
+.nv-tag.fixed{border-color:#fde68a;background:#fffbeb;color:var(--amber)}
+.nv-tag.auto{border-color:var(--blue-l);background:#eff6ff;color:var(--blue)}
+.main-col{display:flex;flex-direction:column;gap:14px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.stat{background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:13px;text-align:center}
+.stat .ic{font-size:19px;margin-bottom:5px}
+.stat .val{font-size:20px;font-weight:900;letter-spacing:-.5px;line-height:1}
+.stat .lbl{font-size:10px;color:var(--text3);margin-top:4px;font-weight:600}
+.stat .sub{font-size:11px;color:var(--text2);margin-top:2px}
+.period{display:inline-flex;align-items:center;gap:5px;background:var(--amber-l);color:var(--amber);font-size:11px;font-weight:700;padding:4px 10px;border-radius:5px;margin-top:11px}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:#f8fafc;padding:9px 11px;text-align:left;font-weight:700;color:var(--text2);border-bottom:2px solid var(--border);white-space:nowrap}
+tbody td{padding:8px 11px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+.tag{display:inline-flex;align-items:center;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap}
+.tag.s{background:var(--blue-l);color:var(--blue)}
+.tag.n{background:var(--green-l);color:var(--green)}
+.r5{color:#f59e0b;font-weight:800}.r4{color:var(--text2);font-weight:700}
+.r5f{color:#f59e0b;font-weight:800;font-size:10px}.r4f{color:var(--blue);font-weight:800;font-size:10px}
+.ct{max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text2)}
+.bar-row{display:flex;align-items:center;gap:8px;margin-top:4px}
+.bar-label{font-size:11px;color:var(--text2);width:24px;text-align:right;font-weight:700}
+.bar-track{flex:1;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.bar-fill.five{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.bar-fill.four{background:linear-gradient(90deg,var(--blue-l),var(--blue))}
+.bar-pct{font-size:11px;color:var(--text3);width:38px}
+.drop-active{outline:2.5px dashed var(--blue)!important;background:var(--blue-l)!important;border-radius:8px}
+.cost-box{font-size:11.5px;line-height:1.65;color:var(--text2);background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:9px 11px;margin-top:4px}
+.cost-box b{color:var(--blue)}
+.cost-box .big{font-size:14px;font-weight:900;color:var(--text)}
+.cost-box.actual{background:var(--green-l);border-color:#a7f3d0}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-inner">
+    <span class="hdr-icon">🅰️</span>
+    <div>
+      <h1>알파 통합 리뷰 생성기<span class="badge">v1.0</span></h1>
+      <p>리뷰 생성(AI) → 알파리뷰 업로드 변환을 한 곳에서</p>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" id="tabBtn1" onclick="switchTab(1)">🤖 리뷰 생성</button>
+  <button class="tab" id="tabBtn2" onclick="switchTab(2)">📋 업로드 변환</button>
+</div>
+
+<!-- ═══════════════════════ 탭1: 리뷰 생성 ═══════════════════════ -->
+<div class="tabpane active" id="pane1">
+<div class="layout">
+  <aside>
+    <div class="card">
+      <div class="card-h"><span class="ic">📦</span> 제품 선택</div>
+      <div class="card-b">
+        <div class="prod-btns" id="prodBtns"></div>
+        <span class="hint" id="prodDesc"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="ic">🔑</span> AI 설정 (Claude API)</div>
+      <div class="card-b">
+        <div class="frow">
+          <label>Claude API 키</label>
+          <input type="password" id="apiKey" placeholder="sk-ant-... (여기에 붙여넣기)">
+          <span class="hint" id="apiKeyHint">인터넷으로 접속했을 땐 여기에 키를 한 번 붙여넣으면 이 브라우저(이 PC)에 저장돼 다음부터 자동 입력됩니다. 키는 외부로 안 보냅니다.</span>
+        </div>
+        <div class="frow">
+          <label>모델</label>
+          <select id="model">
+            <option value="claude-opus-4-8">Opus 4.8 (최고 품질·약 비쌈)</option>
+            <option value="claude-sonnet-4-6">Sonnet 4.6 (가성비)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="ic">⚙️</span> 생성 옵션</div>
+      <div class="card-b">
+        <div class="frow">
+          <label>생성 개수 <span id="cntLbl" style="color:var(--blue);font-weight:800">30개</span></label>
+          <input type="number" id="genCount" value="30" min="1" max="500">
+        </div>
+        <div class="frow">
+          <label>단문 리뷰 비율 <span id="shortRatioLbl" style="color:var(--blue);font-weight:800">20%</span></label>
+          <div class="sl-wrap"><input type="range" id="shortRatio" min="0" max="100" value="20"><span class="sl-val" id="shortRatioVal">20%</span></div>
+          <span class="hint">전체 중 단문예시를 <b>토시 그대로</b> 삽입할 비율. 나머지는 AI가 생성합니다. (예: 20% → 단문 6 + AI 24)</span>
+        </div>
+        <div class="frow">
+          <label>성적 표현 수위</label>
+          <div class="seg-ctrl" id="segSex">
+            <button class="seg-btn" data-v="1" onclick="setOpt('sex',1,this)">은근</button>
+            <button class="seg-btn" data-v="2" onclick="setOpt('sex',2,this)">보통</button>
+            <button class="seg-btn active" data-v="3" onclick="setOpt('sex',3,this)">직설</button>
+          </div>
+        </div>
+        <div class="frow">
+          <label>오타/띄어쓰기</label>
+          <div class="seg-ctrl" id="segTypo">
+            <button class="seg-btn" data-v="0" onclick="setOpt('typo',0,this)">없음</button>
+            <button class="seg-btn" data-v="1" onclick="setOpt('typo',1,this)">약간</button>
+            <button class="seg-btn" data-v="2" onclick="setOpt('typo',2,this)">보통</button>
+            <button class="seg-btn active" data-v="3" onclick="setOpt('typo',3,this)">많이</button>
+          </div>
+        </div>
+        <div class="frow">
+          <label>글 길이</label>
+          <div class="seg-ctrl" id="segLen">
+            <button class="seg-btn active" data-v="0" onclick="setOpt('len',0,this)">기본</button>
+            <button class="seg-btn" data-v="1" onclick="setOpt('len',1,this)">짧게</button>
+            <button class="seg-btn" data-v="2" onclick="setOpt('len',2,this)">길게</button>
+          </div>
+        </div>
+        <div class="frow">
+          <label>말투</label>
+          <div class="seg-ctrl" id="segEnd">
+            <button class="seg-btn" data-v="1" onclick="setOpt('end',1,this)">해요체</button>
+            <button class="seg-btn" data-v="2" onclick="setOpt('end',2,this)">음슴체</button>
+            <button class="seg-btn" data-v="3" onclick="setOpt('end',3,this)">합니다체</button>
+            <button class="seg-btn active" data-v="4" onclick="setOpt('end',4,this)">랜덤</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="ic">📝</span> 단문예시 (비율만큼 그대로 삽입)</div>
+      <div class="card-b">
+        <div class="up-row">
+          <button class="btn-up" onclick="document.getElementById('shortFile').click()">📂 .txt 업로드</button>
+          <span style="font-size:11px;color:var(--text3)" id="shortName">기본 내장</span>
+          <input type="file" id="shortFile" accept=".txt" style="display:none" onchange="loadShort(event)">
+        </div>
+        <span class="hint" id="shortCnt"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><span class="ic">💰</span> 크레딧 / 비용</div>
+      <div class="card-b">
+        <div class="frow">
+          <label>현재 잔액 (크레딧 · USD)</label>
+          <input type="number" id="balance" step="0.01" min="0" placeholder="예: 20.00">
+          <span class="hint">Anthropic 콘솔(Billing)의 잔액을 직접 입력하세요. 생성 후 실제 사용분이 자동 차감됩니다. <b>※ 콘솔에서 직접 잔액을 가져오는 건 보안상 불가</b>해 로컬 추적입니다.</span>
+        </div>
+        <div id="estBox" class="cost-box"></div>
+        <div id="actualBox" class="cost-box actual hidden"></div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main-col">
+    <div class="gen-card">
+      <h2>옵션을 확인하고 생성하기를 누르세요 (AI 호출이라 개당 1~3초·과금 발생)</h2>
+      <button class="btn-gen" id="btnGen" onclick="handleGenerate()">✨&nbsp;&nbsp;리뷰 생성하기</button>
+      <div class="gen-hint" id="costHint"></div>
+      <div class="progress" id="progress"><div class="prog-track"><div class="prog-fill" id="progFill"></div></div><div class="prog-txt" id="progTxt"></div></div>
+      <div id="genStatus" class="status hidden"></div>
+    </div>
+
+    <div class="card hidden" id="resCard">
+      <div class="card-h">
+        <span class="ic">📄</span> 생성 결과 <span id="resCount" style="color:var(--text3);font-weight:400"></span>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn-up" onclick="copyResults()">📋 복사</button>
+          <button class="btn-up" onclick="downloadTxt()">⬇️ txt</button>
+        </div>
+      </div>
+      <div class="card-b" style="padding:0"><div class="rev-wrap" id="resList"></div></div>
+      <div class="card-b">
+        <button class="btn-dl btn-send" onclick="sendToConverter()">➡️&nbsp;&nbsp;이 리뷰들을 '업로드 변환' 탭으로 보내기</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════════════ 탭2: 업로드 변환 (기존) ═══════════════════════ -->
+<div class="tabpane" id="pane2">
+<div class="layout">
+<aside>
+  <div class="card">
+    <div class="card-h"><span class="ic">⚙️</span> 기본 설정</div>
+    <div class="card-b">
+      <div class="frow">
+        <div class="seg-ctrl" style="margin-bottom:7px">
+          <button class="seg-btn active" id="segDStart" onclick="setDateMode('start')">시작 날짜</button>
+          <button class="seg-btn" id="segDEnd" onclick="setDateMode('end')">종료 날짜</button>
+        </div>
+        <input type="date" id="mainDate" value="2026-05-20">
+        <span class="hint" id="dateModeHint">이 날짜부터 앞으로 생성</span>
+      </div>
+      <div class="frow">
+        <label>성씨 리뷰 비율&nbsp;<span id="srLabel" style="color:var(--blue);font-weight:800">30%</span></label>
+        <div class="sl-wrap"><input type="range" id="surnameRatio" min="5" max="70" value="30"><span class="sl-val" id="srVal">30%</span></div>
+        <span class="hint">네이버 리뷰 수 대비 추가할 성씨 리뷰 비율</span>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-h"><span class="ic">📅</span> 날짜 / 시간</div>
+    <div class="card-b">
+      <div class="frow"><label>하루 리뷰 수 범위</label>
+        <div class="two">
+          <div class="frow" style="margin:0"><label style="font-size:10px;color:var(--text3)">최소</label><input type="number" id="minPerDay" value="4" min="1" max="20"></div>
+          <div class="frow" style="margin:0"><label style="font-size:10px;color:var(--text3)">최대</label><input type="number" id="maxPerDay" value="7" min="1" max="50"></div>
+        </div>
+        <span class="hint" id="estHint">네이버 리뷰를 추가하면 예상 기간이 표시됩니다</span>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-h"><span class="ic">🚫</span> 금지 시간대</div>
+    <div class="card-b"><div id="tzList" class="tz-list"></div><button class="btn-add" onclick="addTz()">＋ 시간대 추가</button><span class="hint" style="margin-top:7px">이 시간대에는 리뷰가 생성되지 않습니다</span></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><span class="ic">⭐</span> 평점 설정</div>
+    <div class="card-b"><div class="frow"><label>목표 평균 평점 범위</label>
+      <div class="two">
+        <div class="frow" style="margin:0"><label style="font-size:10px;color:var(--text3)">최솟값</label><input type="number" id="tMin" value="4.85" min="4.00" max="5.00" step="0.01"></div>
+        <div class="frow" style="margin:0"><label style="font-size:10px;color:var(--text3)">최댓값</label><input type="number" id="tMax" value="4.90" min="4.00" max="5.00" step="0.01"></div>
+      </div><span class="hint">모든 평점은 4점 또는 5점으로 생성됩니다</span></div></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><span class="ic">👤</span> 성씨 리뷰 내용 <span style="font-size:10px;font-weight:400;color:var(--text3)">(빠른리뷰)</span></div>
+    <div class="card-b" id="qrDropZone" ondragover="onDragOver(event,'qrDropZone')" ondragleave="onDragLeave(event,'qrDropZone')" ondrop="onDrop(event,'quick')">
+      <div class="up-row"><button class="btn-up" onclick="document.getElementById('fileIn').click()">📂 파일 선택</button><span style="font-size:11px;color:var(--text3)" id="fname">기본값 (39개)</span><input type="file" id="fileIn" accept=".txt" style="display:none" onchange="loadFile(event)"></div>
+      <div class="frow"><textarea id="reviews" placeholder="한 줄에 리뷰 하나씩..."></textarea><span class="hint" id="rCount">0개 로드됨</span></div>
+    </div>
+  </div>
+</aside>
+<div class="main-col">
+  <div class="card">
+    <div class="card-h"><span class="ic">🛒</span> 네이버 페이 구** 리뷰 내용
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <button class="btn-up" onclick="document.getElementById('nvFileIn').click()">📂 파일 업로드</button>
+        <button class="btn-up" style="background:var(--blue-l);color:var(--blue);border-color:var(--blue-l)" onclick="addNv()">＋ 리뷰 추가</button>
+        <input type="file" id="nvFileIn" accept=".xlsx,.txt" style="display:none" onchange="loadNvFile(event)">
+      </div>
+    </div>
+    <div class="card-b" id="nvDropZone" ondragover="onDragOver(event,'nvDropZone')" ondragleave="onDragLeave(event,'nvDropZone')" ondrop="onDrop(event,'nv')">
+      <div class="nv-wrap"><div id="nvList" class="nv-list"></div></div>
+      <div id="nvEmpty" class="nv-empty"><span class="ei">📝</span>아직 리뷰가 없습니다.<br>생성 탭에서 만든 리뷰를 보내거나, <strong>+ 리뷰 추가</strong>·파일 업로드하세요.</div>
+      <div id="nvFooter" class="nv-footer hidden"><span>네이버 <strong id="nvTotal">0</strong>개</span><span class="nv-tag fixed">🔒 고정 <strong id="nvFixed">0</strong>개</span><span class="nv-tag auto">⚙️ 자동 <strong id="nvAuto">0</strong>개</span><span style="margin-left:auto;font-size:11px;color:var(--text2);font-weight:600" id="nvEst"></span></div>
+      <div id="nvBulkRow" class="nv-footer hidden" style="background:#f0fdf4;border-color:#bbf7d0"><span style="color:#059669;font-weight:700">📂 로드: <strong id="nvBulkCount">0</strong>개</span><span style="font-size:11px;color:#059669;margin-left:6px" id="nvBulkFixed"></span><button class="btn-del" onclick="clearNvBulk()" style="margin-left:auto" title="초기화">×</button></div>
+      <span class="hint" style="margin-top:9px">※ 각 리뷰 끝에 <code style="background:#f1f5f9;padding:1px 4px;border-radius:3px">(날짜 시간 에 등록된 네이버 페이 구매평)</code> 이 자동으로 붙습니다</span>
+    </div>
+  </div>
+  <div class="gen-card">
+    <h2>설정과 리뷰를 확인한 후 생성하기를 클릭하세요</h2>
+    <button class="btn-gen" id="btnGen2" onclick="handleGen()">🚀&nbsp;&nbsp;생성하기</button>
+    <div class="gen-hint">Excel 파일이 자동으로 다운로드 준비됩니다</div>
+    <div id="statusEl" class="status hidden"></div>
+  </div>
+  <div id="statsCard" class="card hidden">
+    <div class="card-h"><span class="ic">📊</span> 생성 결과 통계</div>
+    <div class="card-b"><div class="stats-grid" id="statsGrid"></div>
+      <div style="margin-top:14px">
+        <div class="bar-row"><span class="bar-label">5점</span><div class="bar-track"><div class="bar-fill five" id="bar5" style="width:0%"></div></div><span class="bar-pct" id="pct5">0%</span></div>
+        <div class="bar-row"><span class="bar-label">4점</span><div class="bar-track"><div class="bar-fill four" id="bar4" style="width:0%"></div></div><span class="bar-pct" id="pct4">0%</span></div>
+      </div><div class="period" id="period"></div></div>
+  </div>
+  <div id="prevCard" class="card hidden">
+    <div class="card-h"><span class="ic">👁</span> 미리보기 (상위 15행)</div>
+    <div class="card-b" style="padding:0"><div class="tbl-wrap"><table><thead><tr><th>#</th><th>날짜</th><th>시간</th><th>이름</th><th>평점</th><th>구분</th><th>리뷰내용</th></tr></thead><tbody id="prevBody"></tbody></table></div></div>
+  </div>
+  <div id="dlCard" class="card hidden">
+    <div class="card-h"><span class="ic">💾</span> 저장 설정</div>
+    <div class="card-b">
+      <div class="frow" style="margin-bottom:13px"><label>상품코드 빠른 선택</label>
+        <div class="prod-btns">
+          <button class="prod-btn" onclick="setProductCode(this,'P000000M')">블랙알파<span style="display:block;font-size:10px;font-weight:500;opacity:.75">P000000M</span></button>
+          <button class="prod-btn" onclick="setProductCode(this,'P000000Y')">세라펙스<span style="display:block;font-size:10px;font-weight:500;opacity:.75">P000000Y</span></button>
+          <button class="prod-btn" onclick="setProductCode(this,'P000000O')">루티움<span style="display:block;font-size:10px;font-weight:500;opacity:.75">P000000O</span></button>
+        </div>
+        <input type="text" id="productCode" value="P000000X" placeholder="직접 입력..." oninput="onProductInput()">
+      </div>
+      <div class="seg-ctrl">
+        <button class="seg-btn active" id="segCount" onclick="setDlMode('count')">📊 개수 설정</button>
+        <button class="seg-btn" id="segDay" onclick="setDlMode('day')">📅 일별 다운로드</button>
+      </div>
+      <div id="batchRow" class="frow" style="margin-bottom:13px"><label>파일당 리뷰 수</label><input type="number" id="batchSize" value="100" min="1" oninput="updateDlInfo()"></div>
+      <div id="dlInfo" style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:13px;padding:9px 14px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;font-weight:700"></div>
+      <button class="btn-dl" id="btnDl" onclick="handleDl()">💾&nbsp;&nbsp;Excel ZIP 다운로드</button>
+      <span class="hint" style="text-align:center;display:block;margin-top:8px">※ 업로드폼 구조(alphareview_review_upload_form)에 맞춰 ZIP으로 저장됩니다</span>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   제품 설정 — 새 제품 추가는 여기 PRODUCTS 에 객체 하나만 추가하면 됨
+   ══════════════════════════════════════════════════════════════ */
+const PRODUCTS = {
+  blackalpha: {
+    type:'male',
+    name: '블랙알파',
+    code: 'P000000M',
+    kind: '남성 정력제(환)',
+    desc: '남성 정력제 · 환(통 단위) · 블랙마카/아르기닌/복분자/야관문/아연',
+    dickWords: ['자지','좆','거시기','물건','대물','그것','그곳','아랫도리','아랫쪽','꽈추','거기','사타구니','밑','아래쪽','똘똘이'],
+    hardWords: ['강직도','단단함','딱딱함','곧추섬','철근 같다','돌덩이 같다','쇠 같다','풀발','풀발기','텐트','잘 선다','죽지 않는다','살아난다','되살아난다','단단하게 선다'],
+    ingredients: ['블랙마카','아르기닌','복분자','야관문','아연'],
+    ingOrigin: { '블랙마카':'페루산', '복분자':'국산', '야관문':'국산' }, // 아르기닌·아연은 원산지 미표기
+    ingAllowed: '블랙마카, 아르기닌, 복분자, 야관문, 아연',
+    forbidden: ['탈모','다이어트','체중','발모','두피','모발'],
+    sexTexts: {
+      1: "성적인 표현은 은근하게, 직접적인 단어 대신 '그쪽·밤·잠자리' 정도로 점잖게 돌려 쓴다.",
+      2: "성적인 표현은 보통 수위로. 밤·잠자리·컨디션 위주로 솔직하되 너무 노골적이진 않게.",
+      3: "성적인 표현을 직설적으로 써도 된다. 발기·강직도·지속시간·굵기·자신감·사정조절 등 구체적으로. 단 맥락에 맞게 자연스럽게."
+    }
+  },
+  serapex: {
+    type:'diet',
+    name:'세라펙스',
+    code:'P000000Y',
+    kind:'다이어트·식단 컷팅 보조제(사과맛 씹어먹는 정제)',
+    desc:'다이어트 보조제 · 사과맛 씹어먹는 정제 · 식약처 HACCP · 식전 한 알 · 식욕↓/포만감/야식↓',
+    ingredients:['복합효소','애사비','식이팽창 성분'],
+    forbidden:['정력','발기','성기','강직','조루','지속시간','탈모','두피','모발','자지','좆','거시기','꽈추','아랫도리']
+  }
+};
+let curProduct = 'blackalpha';
+let AUTO_KEY = '';   // '클로드 api키.txt'에서 자동 로드(입력칸 없이 내부 보관)
+
+/* ── 단문예시(내장) — 업로드로 교체 가능 ── */
+let SHORT_POOL = `가격대비품질이좋아요
+꾸준히 복용중
+나름 괜찮은듯함!!
+두달꺼 재구매 완료
+먹기 편해 좋아요~
+빠른배송 감사합니다
+아주아주 정말좋아요
+아주조아요감사합니다
+잘산거같습니다
+좋아요 재주문입니다
+만족합니다 먹기편해요
+먹어본거중에 젤좋아요
+배송도 빠르고 좋아요
+빠른 배송 부탁합니다
+빠른배송 부탁드립니다
+빠른배송에 만족합니다
+아주조아요 가사합니다
+좋습니다! 만족합니다
+좋아요 좋아요 좋아요
+좋은 제품 감사합니다
+또,,,,구매예정
+먹고있는데 좋은것같네요
+먹어보니 좋은거 같아요
+배송도 빠르고 좋네요~
+빠른배송 잘 받았습니다
+상품 잘받았습니다~^^
+열심히 먹고잇는중입니다
+잘받았습니다 감사합니다
+좋아요~~~~~~~~~
+최고예요! 효과 만점~
+포장 꼼꼼하게 부탁해요
+효과 최고입니다..ㅎㅎ
+감사합니다 잘 받았습니다
+너무 감사합니다 좋습니다
+늘~ 챙겨먹고 있어요~
+배송도빠르고좋아요 ㅋㅋㅋ
+배송빠르고좋아요….
+빠른 배송 감사 합니다.
+잘 사용 하고 있습니다.
+잘먹어볼게요~ 감사합니다
+정말 달라져요 느껴보세요
+좋네요 몸에반응이 빨라요
+좋은것같아요~~~~~~~
+효과가 있었으면 좋겠어요
+많이 파세요, 대박나시구요
+재구매해서 먹습니다 좋아요
+조아져요 드셔보시면 압니다
+좋은상품 입니다 감사합니다
+한번 먹어보도록 할게용^^
+꾸준히먹어야만 효과가 오네요
+너무 좋아요 진짜 달라짐..
+먹어보고나서 다시올려볼게요!
+배송 빠르고 가격대비 좋아요
+배송 빠르고 좋네요 ~~^^
+배송도 빨랐고 포장도 좋아요
+배송빠르고 설명한것과 같아요
+빠르게 안전하게 배송됐어요-
+빠른발송 감사합니다 ...!
+생각보다 효과빠름
+좋아요 좋아요 좋아요 좋아요
+좋아요 지인한테도 추천할게요
+계속 주문하는 제품인데 좋아요
+그냥 좋습니다 드셔보세요 ^^
+네이버리뷰보고 믿고샀어요
+배송 Good. 물품 Good
+제품 잘받았습니다. 잘먹을게여
+좋네요. 열심히 먹어야 겠어요
+좋다해서구매해봅니다
+좋아요 추가 구매 했어요~^^
+찐짜로좋아요.또구입할꺼예요~~
+최고 효과 진짜 장난 아니었음
+포장과 배송상태도 좋았습니다.
+궇귯. 배송도 빠르고 먹어볼께요
+빠른 배송 감사합니다
+빠른 배송 너무 감사합니다
+빠른배송 감사합니다~
+생각보다 좋은거 같네요 강추강추
+제품도 좋고 배송도 빨라요...
+먹기 편리해요 가격도 합리적이에요
+배송도 빠르고 확실히 효과 있네요
+배송도 빠르고 효과도 빠르고
+빠른 배송 부탁드립니다
+아주아주 맘에듭니다. 추천합니다.
+잘먹고있습니다감사합니다
+좀더 먹어보고 리뷰작성 하겠습니다
+좋음.좋음.좋음.좋음.좋음.좋음.
+포장 상태가 좋고 먹기가 편합니다
+확실히 효과 보규 재구매합니다!!
+만족합니다 좋은 효과 기대해봅니다
+빠른배송 부탁드려요~~~
+빠른배송과 좋은제품 고맙습니다
+잘받았습니다 잘먹어볼께요
+3번째구매 했어요 써비스없나요~???
+배송이 빠르네요. 잘 먹어보겠습니다.
+빠른배송 부탁드립니다 기대해보겠습니다
+빠른배송에 만족하고 효과를 기대합니다
+아주조은제품계속먹고있습니다 감사합니다
+효과 있습니다… 확실히!! 인정 인정
+만족합니다만족합니다만족합니다
+바른배송감사합니ㅏㄷ마니파세여
+빠른 배송 부탁드립니다~~~
+좋아요좋아요좋아요좋아요좋아요좋아요좋아요
+항상 챙겨먹고 있습니다~~~
+효과가 있으면 좋겠네요 처음 먹어보는데
+만족합니다 재구매 의사 있음.
+매일 챙겨 먹읍니다 만족합니다
+벌써 두번째 주문입니다. 효과 좋습니다.
+빠르게 잘받았어요 재구매이고요 잘먹을께요
+빠른배송 감사해요 처음이라 기대해 봅니다
+좋아요적극추천합니다
+효과가 좋아 매일 복용중입니다
+만족하는 제품입니다 많이 파세요
+만족하는 제품입니다 추천드립니다
+배송 빠르고 좋습니다 추천합니다
+배송이 빨라 좋고 후기만큼 효과 기대할께요
+벌써 6통째 구매네요.. 효과 있습니다!!
+빠른배송 감사합니다 잘먹겠습니다
+빠른배송 감사합니다.
+꾸준히 먹어보겠습니다.
+먹은날과 안먹은날의 차이가 확실히 있네요..
+오늘 배송받았네요.꾸준히 섭취해 보겠습니다.
+좋은 효과 기대해봅니다
+효과 만족도 아주 굿 입니다 ^^
+후기평이 좋아 구매했습니다 기대중
+생각보다 괜찮아서 재구매 합니다^^
+아직 먹기 전이에요 먹어보면 알겠죠
+가격만빼면나쁘지않아요좀더저렴하엿으면~
+꾸준히 먹고 기대하겠습니다
+몸에 잘 받는듯 하여 재주문 했습니다
+배송도 빠르고 만족합니다~ 자주 먹고 있어요~
+부작용 없고 좋음. 계속 먹을 예정.
+수개월째 복용중인데 좋아요
+일단 배송 빠르고 먹어보고 효과있는지 봐야겠네요
+잘받았습니다. 잘먹고 효과가 나왔으면 좋겠네요.
+향이 좋고 먹기 편해요 추천해요~~~
+아직 먹기 전인데 평이 좋아 기대중이요
+광고보고 샀는데 효과가 좋다하여 기대중임
+배송이 빠르네요 잘 한번 먹어 보겠습니다
+아직 먹어보지는 못했지만 리뷰를 믿고 먹어보겠습니다
+포장 꼼꼼하게 빠른 배송 부탁드려요~^^
+배송도 빠르고 왠지 믿이 갑니다 먹어보고 후기남길께요
+배송빠르고 효과도 빠르네요 재구매 예정^^
+좋은 제품이라 재 구매하였습니다
+포장 꼼꼼하고 배송도 빠르네요 잘먹겠습니다
+되게 만족 하고 있습니다 지금 꾸준하게 먹고 있습니다.
+두통 추가 주문하니 빠르게 배송 부탁드립니다
+먹을때와 안먹을때 차이가 확실히 큰듯 합니다
+빠른배송 감사합니다 꾸준하게 잘 먹어 볼게요
+이것저것 먹어보았지만 이게 제일 좋은 듯 ~
+좋은제품 빠른배송 최곱니다.!!!
+효과 보장합니다. 3번 구매하고 또 구매할 예정입니다.
+아직 먹기전이에요 내일부터 꾸준히 먹어보고 후기 남길게요
+제품이 오늘 도착했눈데요 먹어보고 후기를 오리께요 ….
+광고보고 한번 시켜봤는데 효과 기대하고 있습니다
+배송이 빠릅니다 꾸준히 먹고 있습니다
+빠른배송에 감사드립니다 잘먹겠습니다
+배송 빠르고 좋음. 향도 좋고 먹을만하여 추천함.
+배송이 빠르고 상담사 분이 친절합니다^^ 수고하셔요~
+빠른배송 부탁드립니다 포장도 꼼꼼히 잘 부탁드려요
+아직 먹기 전인데 후기가 좋아 기대하고 있습니다~
+효과를 잘 봐서 이제 조금씩 양을 줄여보려 합니다
+1통 다먹고 2개째인데 확실히 먹기 전후가 다릅니다
+광고보고 주문했는데 기대 이상으로 돈값하네요 ㅎㅎ
+광고에 혹해서 구매했는데 실제로 효과가 좋습니다..
+오늘 잘 받았습니다 빠른 배송 감사합니다
+배송이 빠르고 효과가 좋아서 재구매했습니다
+만족하는 제품입니다. 배송도 빠르고 품질도 우수합니다.
+감사합니다
+대박 나세요
+많이 파세요
+수고하세요
+잘 받았습니다
+잘 받았습니다 감사합니다
+좋아요좋아요좋아요
+포장 꼼꼼하게 부탁드립니다
+포장 꼼꼼하게 빠른 배송 부탁드려요
+해외 출장이 있어 빠른 배송 부탁합니다
+대박나세요
+잘먹을게요
+만족합니다
+잘먹어볼게요
+이건진짜네.
+이건 진짜네요.
+이게 되네...
+신속배달 좋습니다
+빠른배송부탁드려요
+이건 진짜네요 ㅎ
+효과 기대중입니다
+추천하는 상품입니다
+빠른배송 부탁드려요
+빠른배송부탁드립니다
+만족하는 제품입니다
+만족하는 상품입니다
+열심히 먹어보겠습니다
+감사합니다 대박나세요
+빠른 배송 부탁드려요
+감사합니다 잘먹을게요
+잘먹을게요 수고하세요
+효과있길 기대중입니다
+감사합니다 잘먹어볼게요
+감사합니다 잘먹겠습니다
+효과 기대하고 있습니다
+잘 먹어보도록 하겠습니다
+포장꼼꼼하게 잘받았습니다
+빠른 배송에 좋은 가성비.
+상담사 분이 친절합니다^^
+빠른배송 감사합니다 효과있길
+빠르게 보내주셔서 감사합니다
+배송도 빠르고 효과도 좋아요
+포장꼼꼼하고 배송도 빠르네요
+포장 깔끔하고 배송도 빠르네요
+배송이 빠르고 효능도 좋습니다
+잘받았습니다 열심히 먹어볼게요
+빠른배송 감사합니다 수고하십시오
+잘 받았습니다 꾸준히 먹어보겠습니다
+이것저것 다 먹었음. 이건 달라요.
+지인이 먹어보라고 해서 주문했습니다.
+가격 보고 망설였는데 후회 없습니다.
+처음엔 반신반의했는데 지금은 확신해요.
+처음엔 반신반의했음. 지금은 확신했음.
+처음엔 반신반의했는데 지금은 확신합니다.
+빠른 배송 잘 받았습니다. 잘 먹겠습니다.
+배송 빠르고 포장도 깔끔하고 품질도 좋습니다
+처음엔 반신반의했습니다. 지금은 확신합니다.
+주변에서 먼저 먹어보라 하더니 이유 있었네요.
+어제 주문했는데 오늘 받았습니다 잘 먹겠습니다
+동료가 먹고 달라졌다고 해서 저도 주문해봤어요.
+어제 시켰는데 오늘 받았습니다 잘 먹어보도록 할게요`.split('\n').map(s=>s.trim()).filter(Boolean);
+
+/* ── 장문 톤 예시(긴 출력 분기용, 블랙알파_작문기\장문예시.txt 내장) ── */
+let LONG_POOL = [
+  "﻿확실히 달라진 것 같아요. 몸 전체에 생기가 도는 느낌이랄까, 아내도 요즘 잠자리가 다르다고 하더라고요 ㅎ💪",
+  "처음 2주는 별 변화 없었는데 한 달 넘기니까 아침에 거시기 반응 오는 날이 늘었어요. 아내가 요즘 왜 달라졌냐고 물어보더라고요 ㅎ",
+  "운동 끝나고 몸 푸는데 아내가 옆에 붙길래, 아랫도리 반응이 바로 오더라고요ㅋㅋ 이런 적 오랜만이라 좋았음",
+  "출근길에 몸이 가볍고 텐션 올라와 있는 게 느껴져요. 전날 와이프랑 한판 뛰었는데도 멀쩡하게 출근했네요ㅋㅋ",
+  "부부생활에 자신감이 많이 떨어졌었는데 두 달 먹으니 아내가 요즘 더 좋아하는 것 같아서 저도 기분 좋네요 ㅎ",
+  "기력 보충하려고 샀는데 블랙마카랑 야관문 때문인지 확실히 밤에 다르더라고요. 기대 이상임^^😊",
+  "먹고 나서 관계 시간이 예전보다 많이 늘었어요ㅎㅎ 아내도 요즘 만족해하는 것 같아서 다행임",
+  "환이라 뚜껑에 덜어서 털어넣으면 끝이라 진짜 편함. 물 없이도 먹을 수 있어서 아침마다 꾸준히 챙기게 되네요🔥",
+  "일주일쯤 먹어보니 기운이 좀 도는 게 느껴져요. 아침에 텐트도 잘 쳐지고요…^^",
+  "가게 일 끝나고 피곤할 때도, 주말 아침에 집사람이 옆에 앉으니까 아랫쪽 반응이 오더라고요. 이럴 줄 몰랐음😄",
+  "솔직히 조루가 콤플렉스였는데 버티는 시간이 확실히 달라졌어요ㅋㅋ 와이프도 다리 떨더라고요",
+  "요즘 아랫쪽 반응이 완전 달라졌어요. 포기하고 있었는데 다시 잘 되니까 살 것 같네요 ㅎ😂",
+  "늘 지쳐있어서 잠자리도 자신 없었는데, 요즘은 거시기가 딴딴해진 게 느껴져서 만족 중입니다",
+  "회식에서 꽤 마셨는데 다음 날 아침에 멀쩡하더라고요. 예전엔 하루 종일 무거웠는데 요즘은 오후까지 기력이 가네요",
+  "오십 넘어서 이런 자신감이 다시 생길 줄 몰랐어요. 아내가 요즘 더 좋아하는 것 같고요 ㅎ😂",
+  "운동하고 나서 꽈추 빳빳해진 거 확실히 느껴져요ㅋㅋ 한판 뛰고도 다음 날 헬스장 갈 정도로 회복도 빠름👏",
+  "처음엔 자꾸 까먹었는데 이제 아침 루틴에 자리 잡았어. 꽈추도 딴딴해진 것 같고 이제 완전 습관 됐다",
+  "지속시간이 확실히 길어졌어요. 여친이 다리 떨림 심해졌다는데 이건 진짜 예상 못 했네요ㅋㅋ",
+  "환이라 아침에 뚜껑 열고 바로 털어넣으면 끝이라 자취하는 입장에서 너무 편해요. 그래서 꾸준히 챙기게 되네요",
+  "이쪽으론 거의 포기했었는데 먹기 시작하고 달라지더라고요. 강직도가 예전처럼 돌아온 느낌임",
+  "후기 처음 써보는데요, 아침에 거시기 살아있는 느낌 드는 날이 생겼어요. 신기해서 남겨봅니다 ㅎ",
+  "피곤해서 아랫쪽 반응도 없었는데 먹고 나서 딴딴해진 느낌 진짜 좋음ㅋㅋ",
+  "먹기 시작한 뒤로 아침에 거시기가 살아있는 느낌이에요. 아내도 좋아하는 것 같고요 ㅎ",
+  "꾸준히 먹었더니 아랫도리 쪽이 확실히 달라졌어요. 아내도 요즘 좋아하더라고요 ㅎ",
+  "피로 관리하려고 먹기 시작했는데, 주말 아침에 눈 뜨자마자 반응이 오더라고요. 이건 진짜 기대 안 했음😄",
+  "한 달쯤 지나니 강직도가 확실히 좋아졌어요. 다른 건 딱히 안 바뀌었는데 거시기 쪽 반응만 다른 느낌💪",
+  "한 통 다 비우고 후기 남깁니다. 섣불리 판단하기 싫었는데 강직도가 확실히 달라졌더라고요. 꾸준히 먹어볼 생각",
+  "주말에 애들이랑 공원에서 한참 뛰었는데 다음 날 삭신이 안 쑤셔요. 에너지가 살아있는 느낌임💪",
+  "박는 시간이 예전이랑 비교가 안 되게 늘었어요. 꽈추도 더 딴딴해진 느낌이고요😊",
+  "저녁 먹다가 몸 상태가 요즘 다르다는 걸 혼자 느꼈네요. 아내도 좋아하는 것 같고요 ㅎ😎",
+  "받은 지 며칠 안 됐는데 아침에 텐트 쳐지는 날이 생긴 것 같아요ㅎㅎ 한 통 더 먹고 다시 후기 남길게요",
+  "아 이거 왜 진작 몰랐지… 와이프가 요즘 자꾸 붙는 거 보면 나도 달라진 것 같아 진짜",
+  "주말에 애들이랑 뛰는데 나중까지 기력이 남더라고요. 예전엔 한 시간도 못 버텼는데 이제 애들이 먼저 지침ㅎㅎ",
+  "먹기 시작했는데 꽈추 딴딴해진 느낌ㅋㅋ 어제 만난 사람이랑 지속시간이 예전이랑 비교가 안 됐음",
+  "아랫쪽이 예전보다 딴딴해진 느낌이에요. 아내가 요즘 더 좋아하는 것 같고요 ㅎ",
+  "피로 관리하려고 먹었는데 아내랑 얘기하다가 아랫쪽이 불끈하더라고요. 이건 진짜 기대 안 한 부분이라 놀랐음 ㅎ",
+  "동료가 알려줘서 먹기 시작했는데 와이프 반응이 달라졌어요ㅎ 다리 떨더라고요",
+  "헬스 보조로 먹기 시작했는데 한 달쯤 됐을 때 주말 아침에 누워있다 아랫쪽 반응이 올라오더라고요. 진짜 놀랐음👏",
+  "등산 체력 키우려고 먹은 건데 한 통 거의 다 먹어갈 즈음 씻고 나오니 거시기 반응이 오더라고요ㅋㅋ 기대도 안 했는데😄",
+  "처음 2주는 별 차이 없었는데 한 달 넘으니 늦은 퇴근에도 와이프 옆에 앉으면 반응이 와요. 이렇게 달라질 줄 몰랐음",
+  "남편 챙겨줬는데 요즘 잠자리가 확실히 달라졌어요. 제 신음소리가 커진 것 같아서 저도 놀랐네요 ㅎ😎",
+  "지난주에 한판 뛰었는데 여친 눈이 풀리고 다리가 떨리더라고요ㅎ 이런 적 처음임👏",
+  "야근 마치고 술 한잔 하고 들어갔는데 다음 날 아침 컨디션이 멀쩡해요. 피로가 덜 쌓이는 느낌이라 계속 먹는 중😂",
+  "광고 보고 반신반의했는데 아내가 요즘 왜 이렇게 달라졌냐고 묻더라고요 ㅎ 아랫도리가 확실히 살아난 느낌임",
+  "자지가 딴딴해진 느낌 확실히 있음ㅋㅋ 어제 진짜 잘 했어요 기분 좋다",
+  "먹은 지 한 달 됐는데 몸에 생기가 도는 느낌이에요. 아내도 좋아하고요 ㅎ",
+  "거시기 딴딴해진 느낌이 오더라고요. 집사람도 요즘 속궁합 달라졌다고 좋아하는 중입니다",
+  "솔직히 이 나이에 반포기였는데 꽈추가 빳빳해진 느낌이 와요. 아내 눈 풀리는 거 오랜만에 봤네요 ㅎ",
+  "두 달 꾸준히 먹었더니 강직도가 확실히 달라졌어요. 아내 반응이 완전히 바뀌어서 저도 만족 중😊",
+  "야관문이랑 아르기닌 들어있어서 샀음. 고추 딴딴해진 거 체감되고 박는 시간도 늘었어요",
+  "아랫도리가 확실히 딴딴해진 것 같아요. 아내가 요즘 좋아하는 것 같고요 ㅎ",
+  "혼자 조용히 두 달 먹었는데 잠자리가 달라진 게 느껴져요. 결국 동료한테 슬쩍 알려줬네요 ㅎ",
+  "운동 끝나고 회복이 예전보다 빠르고, 아내 보는데 반응도 오더라고요 ㅎ",
+  "두 통째 먹는데 지속시간이 확실히 달라졌어요. 아내 반응도 많이 바뀌었고요 ㅎ😄",
+  "꽈추가 확실히 빳빳해진 느낌이에요. 아내가 요즘 속궁합 달라졌다고 하더라고요",
+  "한 달 먹었고 꽈추 딴딴해진 거 확실히 느껴집니다. 지속시간도 늘어서 재구매해요",
+  "전체적인 에너지가 달라졌어요. 퇴근하고 와이프 보는데 반응이 와요. 꾸준히 먹는 중인데 몸이 확실히 다름😄",
+  "먹은 지 3주 됐는데 자지가 확실히 빳빳해졌어요. 복분자 들어있다더니 진짜인가봐요ㅋㅋ",
+  "먹기 시작했는데 자지 딴딴해진 느낌이 와요. 자신감이 많이 살아났네요",
+  "남편한테 사줬는데 요즘 진짜 달라졌어요. 다리가 떨리고 제 신음소리도 커진 것 같아 깜짝 놀랐네요ㅎㅎ👍",
+  "현장 일하고 주말이면 늘 뻗었는데 요즘은 쉬는 날 오히려 생기가 돌아요. 회복이 확실히 다른 느낌",
+  "같이 일하는 친구가 먹어보라 해서 시작했는데, 아내가 요즘 잠자리 달라진 것 같다고 해서 기분 좋네요 ㅎ🔥",
+  "먹기 시작했는데 처음엔 자주 까먹다가 이제 완전 습관 됐어요. 자지 딴딴해진 게 느껴져서 빠질 수가 없네요🔥",
+  "생일 선물로 와이프한테 받았는데 한 달 먹으니 속궁합이 달라졌어요. 둘 다 만족 중이에요ㅎㅎ",
+  "강직도가 확실히 달라졌어요. 블랙마카에 아르기닌까지 들어있으니 그럴 만하다 싶더라고요👏",
+  "오늘도 한 알 먹었어. 어제 만난 사람이랑 지속시간 진짜 좋았음ㅋㅋ 예전이랑 비교가 안 됨😂",
+  "야근하고 반주 한잔 했는데 다음 날 아침 몸이 멀쩡하더라고요. 이런 느낌 오랜만임",
+  "3개월 넘게 먹는데 확실히 달라졌어요. 강직도가 예전 수준으로 돌아오고 아내도 잠자리 좋다고 하네요. 이 나이에 이 정도면 충분 ㅎ😄",
+  "지방 출장 이틀 다녀오면 방전됐는데 요즘은 집에서 와이프 보는데 반응이 와요. 오후 기력도 유지되는 느낌🔥",
+  "퇴근하고 소파에 눕는 게 일상이었는데 요즘은 집에서 안사람 보면 아랫도리가 살아나요 ㅎ😊",
+  "현장 동료가 요즘 왜 이렇게 생기 넘치냐고 먼저 묻더라고요. 이유는 말 못 했네요ㅎㅎ",
+  "두 달째 먹는데 아내 눈이 풀리고 다리가 떨리더라고요. 저도 뭔가 달라진 것 같아요😎",
+  "꽈추 빳빳해진 게 확실히 느껴져요. 세 달 꾸준히 먹었더니 와이프가 왜 이렇게 달라졌냐고 묻더라고요. 재구매함",
+  "골프 라운딩 끝나면 다리 풀려서 그날 저녁은 포기였는데, 요즘은 집에서 안사람 옆에 앉으면 반응이 와요",
+  "팀장이 먼저 먹고 좋다 해서 시작했는데 오후까지 기력이 유지돼요. 아르기닌이랑 아연 들어있어서 더 믿음 감😊",
+  "예전엔 금방 끝나서 아내한테 미안했는데 요즘은 아내가 좋아하더라고요 ㅎ 지속시간이 달라진 것 같음",
+  "주말에 아내랑 시간 보낼 때 아랫도리가 확실히 살아있어요. 예전보다 오래 가더라고요👏",
+  "운동 보조로 먹기 시작했는데 주말 아침에 누워있다 아랫쪽이 팔팔해지더라고요. 이쪽 효과는 기대도 안 했는데 ㅎ",
+  "자지 딴딴해진 거 확실히 있음ㅋㅋ 어제 진짜 잘 됐어요 기분 좋네",
+  "속궁합이 이전이랑 많이 달라졌어요. 집사람도 요즘 더 좋다고 하고요. 복분자랑 블랙마카 조합이 효과가 있나봐요💪",
+  "헬스 다니는 동료 추천으로 시작했는데 어제 만난 사람이랑 지속시간이 진짜 달라져서 놀랐어요ㅋㅋ",
+  "처음 2~3주는 잘 몰랐는데 한 달 넘으니 아내가 요즘 뭐 먹냐고 묻더라고요. 아랫도리 쪽이 달라진 것 같음😎",
+  "오늘 퇴근하고 와이프랑 잠자리 가졌는데 끝까지 딴딴하게 버텼어요. 바로 후기 남깁니다ㅋㅋ",
+  "자기 전에 올려요, 오늘 아내랑 강직도가 확실히 올라온 느낌이었어요. 예전이랑 달라 저도 놀랐네요 ㅎ",
+  "꽈추가 빳빳해진 게 확실히 느껴지고 아랫도리도 묵직해졌어요. 집사람 반응도 달라져서 만족 중😄",
+  "한판 뛰었는데 아내 눈이 풀리더라고요ㅋㅋ 박는 시간이 진짜 달라져서 기분 좋습니다😊",
+  "야근에 출장 반복되니 거시기 반응이 시원찮았는데 한 달 먹고 딴딴해졌어요. 부부생활 나아져서 만족 중🔥",
+  "2주까지는 별 느낌 없었는데 한 달 넘으니 고추 딴딴해지고 박는 시간 늘어난 게 확 느껴져요. 여친 눈이 풀리기 시작함ㅎㅎ💪",
+  "야관문에 복분자까지 들어있길래 믿고 샀는데 아내가 요즘 확실히 달라졌다고 하더라고요",
+  "다른 거 두 개 먹어봤는데 체감 없었거든요. 이건 일주일 지나니 아침 기운이 살아나요. 이번엔 다른 것 같음",
+  "회식 다음 날 보통 오전 내내 처져있었는데 요즘은 컨디션이 훨씬 빨리 돌아와요. 오후까지 생기가 유지됨",
+  "거시기가 전보다 딴딴해져서 아내도 요즘 잠자리 달라졌다고 하더라고요🔥",
+  "처음엔 깜빡깜빡 하다가 요즘은 아침마다 챙기는 게 습관 됐어요. 기력이 살아있어서 이제 거르질 않게 되네요",
+  "예전엔 강직도가 약해서 고민 많았는데 먹고 나서 딴딴해지고 오래 버티는 느낌이에요",
+  "받은 지 일주일 됐는데 아침에 텐트 쳐지는 날이 조금씩 생겨요ㅎ 한 통 더 먹고 다시 후기 남길게요",
+  "이 나이에 이미 포기했었는데 먹고 나서 거시기 반응이 살아나더라고요. 다시 의욕이 생겼습니다",
+  "3개월째 먹는데 자지 딴딴해진 게 확실히 느껴지고 박는 시간도 늘었어요. 장기 복용 추천함",
+  "먹기 전엔 중간에 힘 빠지는 날 많았는데 요즘은 끝까지 딴딴하게 버티는 느낌이에요",
+  "건강검진 결과 보고 뭔가 해야겠다 싶어 샀는데 아랫도리가 살아난 느낌이에요. 아내도 좋아하고요 ㅎ",
+  "한 통 다 먹고 후기 남깁니다. 조루 때문에 사봤는데 지속시간이 달라진 건 확실히 느껴져요. 성급하게 판단 안 하길 잘했음"
+];
+/* ── 어미별 내장 few-shot(스타일 부족분 보충, PS $builtinByEnd) ── */
+const BUILTIN_BY_END = {
+  1:['효과 있는 거 같아요 계속 먹어볼라고요','아직 잘 모르겠어요 더 먹어봐야 알 것 같아요','배송 빠르네요 포장도 깔끔했어요','나이 먹고 시원찮았는데 요즘 좀 서네요','밤에 확실히 다른 것 같아요 만족해요','별 기대 안 했는데 생각보다 괜찮네요'],
+  2:['효과 있는 듯 계속 먹는중임','아직 잘 모르겠음 더 먹어봐야 알 듯','단단해진 느낌임 재구매함','배송 빠름 포장도 깔끔했음','나이먹고 시원찮았는데 요즘 좀 섬','밤에 확실히 다름 만족함','별 기대 안 했는데 괜찮았음','꾸준히 먹으니 지속력 늘어난 듯함'],
+  3:['효과 있는 것 같습니다 계속 먹어보겠습니다','아직 잘 모르겠습니다 더 먹어봐야 할 것 같습니다','배송 빠르고 포장도 깔끔했습니다','나이 먹고 시원찮았는데 요즘 좀 섭니다','밤에 확실히 다른 것 같습니다 만족합니다','별 기대 안 했는데 생각보다 괜찮습니다']
+};
+/* ── 어미별 few-shot 매칭 정규식(PS $endRes) ── */
+const END_RES = {1:/\uC694[.!~\u2026]*$/, 2:/(\uC74C|\uD568|\uC2B4|\uB4EF|\uC784|\uBD04|\uC9D0|\uC6C0)[.!~\u2026]*$/, 3:/(\uB2E4|\uB2C8\uB2E4)[.!~\u2026]*$/};
+// useEnd 어미에 맞는 짧은 톤 예시 풀(단문에서 어미 매칭 + 부족하면 내장예시 보충). PS styleMatchByEnd.
+function styleShotsFor(useEnd){
+  let m = SHORT_POOL.filter(s=>END_RES[useEnd].test(s));
+  if(m.length < 8) m = m.concat(BUILTIN_BY_END[useEnd]);
+  return m.length ? m : BUILTIN_BY_END[useEnd];
+}
+
+/* ── 생성 풀 (제품 공통) ── */
+const PERSONAS = ['40대 직장인 남자','50대 자영업 하는 아저씨','30대 결혼한 남자','60대 은퇴한 남자','40대 트럭 운전하는 남자','30대 후반 평범한 회사원','50대 농사짓는 남자'];
+const THEMES = ['강직도·단단함이 좋아진 점','지속력 — 예전보다 오래 버티고 끝까지 가는 점','아침 컨디션·아침에 반응이 오는 점','관계 횟수·빈도가 늘어난 점','자신감이 생기고 위축이 사라진 심리 변화','낮 동안 피로가 덜하고 기력·활력이 도는 점','잠자리 만족도와 부부(연인) 사이가 좋아진 점','가격 대비 만족·재구매 결심','성분(국산 원료 등)에 대한 신뢰','나이 들어 시들했다가 다시 사는 듯한 변화','드라마틱하진 않지만 은근히 체감되는 점','반신반의하다가 효과 보고 인정하게 된 점'];
+const STRUCTS = [
+  {d:'딱 한 문장으로, 군더더기 없이 핵심 한 마디만.',lo:12,hi:26},
+  {d:'시간 흐름대로 풀어라: 처음 며칠/몇 주는 어땠는지에서 지금은 어떤지로 짧은 절을 이어서.',lo:45,hi:85},
+  {d:'예전의 불만·고민을 먼저 한 마디 던지고, 그 다음 지금 나아진 점으로.',lo:30,hi:60},
+  {d:'특정 장면·상황(잠자리·아침·주말 등) 하나를 구체적으로 그리듯이.',lo:30,hi:60},
+  {d:'다른 제품이나 예전 상태와 비교하는 톤으로.',lo:28,hi:55},
+  {d:'감정 빼고 담담하게 사실만 한두 가지 적듯이.',lo:18,hi:40},
+  {d:'친구한테 말하듯·추천하듯 편한 구어체로.',lo:25,hi:55}
+];
+const CLICHES = ['꾸준히','반신반의','솔직히','확실히','역시','진짜','정말','너무','드디어','신기하게','기대 이상','기대도 안 했는데','효과 만점','효과를 톡톡히','만족스럽','챙겨 먹'];
+const OPENERS = ['먹고 며칠 되니까','한 달쯤 지나니','나이 드니','와이프가','요즘','퇴근하고','주말에','친구가 추천해서','이것저것 먹어보다가','며칠 전부터','오랜만에','받자마자','집사람이 사놔서','한 통 거의 다 먹어가는데'];
+const AD_OPENERS = ['광고 보고 혹해서','광고 보니까 혹해서','광고 보다가 혹해서','광고 봤는데 혹해서','광고 본 뒤로 혹해서','광고에서 보고 혹해서','광고 보고 궁금해서','광고 본 뒤로 궁금해서','광고 봤는데 궁금해서','광고 보고 나서 궁금해서','광고 보다가 궁금해서','광고 보고 반신반의하면서','광고 봤는데 반신반의하면서','광고에 반신반의하면서','광고 접하고 반신반의하면서','광고 보고 속는 셈 치고','광고 봤는데 속는 셈 치고'];
+const AD_BAN = "광고보고 / 광고보고 혹해서 / 광고로 알게 돼서 / 자꾸 광고에 떠서 / 광고가 하도 떠서 / 쿠팡에서 광고 보고 / 광고에 끌려서 / 광고 문구에 혹해서 / 광고 본 뒤로 속는 셈 치고 / 광고 보니까 속는 셈 치고";
+const REPEAT_KW = ['곧추','딴딴','단단','빳빳','묵직','우뚝','철근','돌덩이','텐트','풀발','쇠 같','쇠처럼','보름','한 달','두 달','한달','두달','일주일','며칠','몇일','한두','한 두','잠자리','부부','와이프','집사람','아내','남편','살아나','되살아','자신감','지속','버티','끝까지','횟수','회춘','절륜','블랙마카','아르기닌','복분자','야관문','아연','자지','좆','거시기','물건','대물','그것','그곳','아랫도리','아랫쪽','꽈추','거기','사타구니','밑','아래쪽','똘똘이','남근'];
+const END_TEXTS = {1:"문장 끝맺음을 해요체(~해요/~네요/~더라고요)로 통일한다.",2:"문장 끝맺음을 음슴체(~함/~음/~듯/~중임)로 통일한다.",3:"문장 끝맺음을 합니다체(~합니다/~습니다/~네요)로 통일한다."};
+const END_NAMES = {1:'해요체',2:'음슴체',3:'합니다체'};
+const MISSPELL = [['됐','됬'],['돼요','되요'],['며칠','몇일'],['굳이','구지'],['왠지','웬지'],['역할','역활'],['오랜만','오랫만'],['예요','에요'],['낫','낮'],['할게','할께'],['희한','희안'],['는데','는대'],['습니다','읍니다'],['안 좋','않 좋'],['지 않','지 안']];
+
+/* ── 광고·번역투 단어(후처리에서 제거 + 프롬프트 금지) ── */
+const ADWORDS = ['강추','대박','뿜뿜','강력 추천','강력히 추천','적극 추천','추천드립니다','추천 드립니다','향상되었','향상되어','경험했습니다','만족스럽습니다','놀라운','최고의','강력하게','인생 영양제','갓생','레전드','역대급','쩐다','미쳤다','킹왕짱','신세계','필수템'];
+
+/* ══════════════════════════════════════════════════════════════
+   재생성 게이트 — PowerShell 작문기(jakmun_gen_opus.ps1)의 재생성 판정 규칙 포팅.
+   생성된 후기가 아래 중 하나라도 걸리면 다시 생성(후기당 최대 3회).
+   주의: 모두 g 플래그 없이 정의(.test() lastIndex 상태 오염 방지).
+   ══════════════════════════════════════════════════════════════ */
+// 맛·향·냄새·식감 평가(환 제품은 맛으로 평가 X). '입맛'(식욕)은 lookbehind로 제외.
+const TASTE_RE = /(?<!입)맛|비린|비려|비릿|냄새|향긋|식감|삼키기|넘기기/;
+// '누가 사줬다/선물했다'(타인 구매) 프레이밍 — giftMode 아닐 때 감지 시 재생성
+const GIFT_BUY_RE = /(친구|지인|동료|선배|후배|아들|손주|손자|조카|아내|와이프|집사람|마누라|부인|아버지|아빠|부모님|장인|어머니|엄마|누가|누군가)\s*(가|이|께|에게|한테|분)?[^.!?]{0,10}?(사줬|사 줬|사줘서|사줘|사 줘|사줌|사준|사주[고서며는]|선물|드렸|드리려|챙겨주|보내줘|보내주|받아서|받았어|받았는|받았다)/;
+// '딸이 사줬다'는 항상 금지(사용자 지시)
+const DAUGHTER_RE = /딸(?!기)\s*(가|이)?[^.!?]{0,10}?(사줬|사 줬|사줘서|사줘|사 줘|사줌|사준|사주|선물|드렸|드리|챙겨)/;
+// 아내(여성) 시점인데 비속어·노골 묘사면 재생성
+const CRUDE_WIFE_RE = /자지|좆|꽈추|신음|후들|몸부림|꼴려|꼴린/;
+// 찐빠: ①효과를 줄었다/약해졌다로(의미반대) ②기분전환(엉뚱계기) ③추천한 약사(주체혼란) ④받자마자 몇 주(시간모순) ⑤자녀가 복용/피곤 ⑥아내가 피곤 ⑦선택/구매하게 되었(번역투) ⑧커뮤니티 '노/누'가 정상 말투와 혼재
+const FLAW_RE = /(강직도|단단함|묵직함|딱딱함|발기력|지속력|정력|크기|굵기|단단|빳빳|발기)[^.!?]{0,5}(줄어|줄었|줄은|약해|약화|떨어|작아|물러|시들|풀린|식어|식었)|기분\s*전환|추천(해준|한|해\s*준|받은)\s*약사|받자마자[^.!?]{0,20}(몇\s*주|한\s*달|며칠|보름|주\s*지나|달\s*지나|주째|달째)|(아들|자식|손주|손자|조카)(이|가|은|는|도|에게|한테)[^.!?]{0,30}(먹|복용|섭취|피곤|힘들|기력|활력|생기|일어나|넘치|컨디션|활기)|(아내|와이프|집사람|마누라|부인)\S?(이|가)[^.!?]{0,25}(피곤|힘들어|지쳐|기력\s*없)|선택하게\s*되었|구매하게\s*되었|포함되어\s*있다는|된다는\s*점\s*때문|공감(되|돼|됩)|(?=.*[가-힣](?:노|누)(?:[ㅋ\s.!?~,]|$))(?=.*(?:습니다|입니다|어요|아요|에요|네요|더라고요|던데요|거든요|구요|세요|봅니다|던데))/;
+// 허용 5종 외 성분(마그네슘 등) 섞이면 재생성. 제품별 허용 성분은 제외(다른 제품 확장 대비).
+const ING_BAD_BASE = ['마그네슘','마그네','비타민','홍삼','인삼','산수유','흑마늘','마늘','칼슘','철분','아미노산','타우린','카르니틴','셀레늄','옥타코사놀','구연산','밀크씨슬','오메가','루테인','프로바이오','유산균','콜라겐','글루타치온','코엔자임','엽산','크레아틴','가르시니아','녹용','쏘팔메토','프로폴리스','징코','은행잎'];
+function ingBadRe(prod){
+  const allow=prod.ingredients||[];
+  const list=ING_BAD_BASE.filter(w=>!allow.some(a=>a.includes(w)||w.includes(a)));
+  return new RegExp(list.join('|'));
+}
+// 생성된(정리된) 후기가 모든 게이트를 통과하면 true. 통과 못하면 재생성 대상.
+function passesGates(t,r,prod){
+  if(prod&&prod.type==='diet')return passesGatesDiet(t,r,prod);
+  if(!t)return false;
+  if(/[A-Za-z]/.test(t))return false;                                   // 영어
+  if((prod.forbidden||[]).some(w=>t.includes(w)))return false;          // 제품 금지어
+  if(prod.tasteBan!==false && TASTE_RE.test(t))return false;            // 맛·향·식감(환 제품)
+  if(((!r.giftMode)&&GIFT_BUY_RE.test(t))||DAUGHTER_RE.test(t))return false; // 타인구매/딸구매
+  if(ingBadRe(prod).test(t))return false;                              // 비허용 성분
+  if(r.narrator==='아내'&&CRUDE_WIFE_RE.test(t))return false;          // 아내 시점 비속어
+  if(FLAW_RE.test(t))return false;                                     // 의미반대·기분전환·주체혼란·시간모순 찐빠
+  return true;
+}
+
+/* ── 옵션 상태 ── */
+let OPT = {sex:3,typo:3,len:0,end:4};
+let genResults = [];
+
+/* ── 유틸 ── */
+function rand(n){return Math.floor(Math.random()*n);}      // 0..n-1
+function pick(a){return a[rand(a.length)];}
+function chance(pct){return (rand(100)+1)<=pct;}
+function shuf(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=rand(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+/* ── 페르소나 연령별 이모티콘 ── */
+function getEmo(persona,female){
+  const r=rand(100)+1, hF=['😊','💕','❤','🙏','👍','🌹','✨'], hM=['👍','😊','💪','👏','😎','🔥'];
+  const heart=()=>female?pick(hF):pick(hM);
+  if(/30대/.test(persona)){ if(r<=55)return''; if(r<=78)return pick(['ㅋㅋ','ㅋㅋㅋ','ㅋ','ㅎㅎ']); if(r<=90)return pick(['~','~~',';;','ㄷㄷ']); if(r<=96)return pick(['!','!!','...']); return heart(); }
+  if(/40대/.test(persona)){ if(r<=50)return''; if(r<=74)return pick(['^^','^^*']); if(r<=84)return pick(['ㅎㅎ','ㅎ']); if(r<=92)return pick(['~','~~']); if(r<=97)return pick(['...','..','!']); return heart(); }
+  if(/50대/.test(persona)){ if(r<=40)return''; if(r<=68)return pick(['^^','^^*','^^~']); if(r<=82)return pick(['~~','~~~']); if(r<=90)return pick(['...','…']); if(r<=95)return pick(['ㅎㅎ','허허']); return heart(); }
+  if(r<=30)return''; if(r<=55)return pick(['^^','^^;;','^^*']); if(r<=75)return pick(['~~~','~~','...','....']); if(r<=85)return pick(['ㅎㅎ','허허','ㅎ']); return heart();
+}
+
+/* ── 메타데이터(날짜·구매평·[태그]) 제거 — Strip-Meta 포팅 ── */
+function stripMeta(t){
+  if(!t)return'';
+  t=t.replace(/\[[^\]]*\]/g,' ');                                                       // [빠른 리뷰] 등 대괄호 태그
+  t=t.replace(/\([^)]*(구매평|네이버|등록|\d{4}\s*[-./]\s*\d{1,2})[^)]*\)/g,' ');        // (…구매평) (날짜…) 괄호 통째
+  t=t.replace(/\([^)]*(작성|\d{2,4}\s*년)[^)]*\)/g,' ');                                 // (23년 7월 작성) 등
+  t=t.replace(/\d{4}\s*[-./]\s*\d{1,2}\s*[-./]\s*\d{1,2}(\s+\d{1,2}:\d{2}(:\d{2})?)?/g,' '); // 남은 날짜/시각
+  return t.replace(/\s{2,}/g,' ').trim();
+}
+
+/* ── 후처리: Clean-Output (PowerShell jakmun_gen_opus.ps1 Clean-Output 포팅) ── */
+function cleanOutput(t,prod){
+  if(prod&&prod.type==='diet')return cleanOutputDiet(t,prod);
+  if(!t)return'';
+  t=t.trim();
+  // 성분 원산지 괄호 -> 자연 형태('블랙마카(페루산)' -> '페루산 블랙마카')
+  t=t.replace(/(블랙마카|아르기닌|복분자|야관문|아연)\s*[\(（]\s*(페루산|국산)\s*[\)）]/g,'$2 $1');
+  t=t.replace(/국산\s*아르기닌/g,'아르기닌');
+  t=t.replace(/(아르기닌[이은가도]?)\s*국산(이라|이고|이니|이어서|이라서|이라던데|이라길래|입니다)?/g,'$1');
+  // 이모지·기호 제거 (BMP 밖 + 기호류). ㅋㅋ/ㅎㅎ(호환자모)는 보존.
+  t=t.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}️‍❤]/gu,'');
+  t=t.replace(/_/g,'');                                                  // 마크다운 강조 언더스코어
+  t=t.replace(/\s*#[^\s#]+/g,'');                                        // 해시태그 제거
+  t=t.replace(/[一-鿿]/g,'');                                           // 한자 제거(번역 느낌 차단)
+  t=t.replace(/。/g,'. ').replace(/[，、]/g,', ').replace(/！/g,'!').replace(/？/g,'?').replace(/；/g,'; ').replace(/：/g,': '); // 전각·중일 부호 -> 한국식
+  t=stripMeta(t);                                                        // 날짜·구매평·[태그]
+  t=t.replace(/\s*\r?\n\s*/g,' ');                                       // 줄바꿈 -> 한 줄
+  t=t.replace(/[!！]{2,}/g,'!');                                         // 느낌표 남발
+  t=t.replace(/[~∼]{2,}/g,'~');                                         // 물결 남발
+  for(const w of ADWORDS)t=t.split(w).join('');                         // 남은 광고어 제거
+  t=t.replace(/\s{2,}/g,' ').trim().replace(/^["'“”]+|["'“”]+$/g,'');
+  t=t.replace(/^[\s\\\-_=~·.,!?ㆍ*•]+/,'');                              // 맨 앞 잡기호·대시·리스트기호
+  t=t.replace(/(니다)\s*합니다/g,'$1');                                  // '입니다 합니다' 중복 꼬리
+  t=t.replace(/\s*~\s*(하네요|합니다|해요|함|음|임)[!.~]*\s*$/,'');       // 끝에 붙은 말투 꼬리
+  // 제형·봉지·먹는방식
+  t=t.replace(/알약|캡슐|정제/g,'제품');
+  t=t.replace(/한\s*봉지/g,()=>pick(['한 통','한 개','하나'])).replace(/봉지/g,'통');
+  t=t.replace(/((?:\d+|한|두|세|네|다섯|여섯|일곱|여덟|아홉|열|몇|한두|두세|서너)\s*)알/g,'$1번'); // 'N 알' -> 'N 번'
+  t=t.replace(/(짜|씹어|녹여|갈아|털어|물에\s*타)\s*서?\s*(?=먹)/g,'');   // 먹는 방식 묘사 제거
+  // 자기 배우자 높임 평어화
+  t=t.replace(/(아내|와이프|마누라)\s*분\s*과/g,'$1와').replace(/(아내|와이프|마누라)\s*분\s*이/g,'$1가').replace(/(아내|와이프|마누라)\s*분\s*은/g,'$1는');
+  t=t.replace(/(아내|와이프|집사람|마누라|부인)\s*분/g,'$1');
+  t=t.replace(/(아내|와이프|집사람|마누라|부인)(\s*)말씀/g,'$1$2말');
+  t=t.replace(/남편\s*분/g,'남편').replace(/신랑\s*분/g,'신랑').replace(/남편\s*님/g,'남편').replace(/(아내|와이프|마누라)\s*님\s*이/g,'$1가').replace(/(아내|와이프|마누라)\s*님\s*은/g,'$1는').replace(/(아내|와이프|집사람|마누라|부인)\s*님/g,'$1');
+  t=t.replace(/느껴지셨/g,'느껴졌').replace(/느끼셨/g,'느꼈').replace(/넘치신다/g,'넘친다').replace(/넘치시다/g,'넘친다').replace(/느끼시는/g,'느끼는').replace(/생기셨/g,'생겼').replace(/드시는/g,'먹는');
+  t=t.replace(/(남편|신랑|아내|와이프|집사람)(이|은|도|가)([^.!?]*?)(다고|라고)\s*느껴(져요|져|지네요|졌어요|졌네요|진다|진대요|지더라구요|지더라고요)/g,'$1$2$3$4 하네요'); // 시점혼란 -> 전언
+  t=t.replace(/\s*,?\s*말이[야지](?=[\s.,!~^…]|$)/g,'');                 // 어색한 '말이야/말이지' 군더더기
+  t=t.replace(/피곤하?(?:다는|단|다고|타는|탄)\s*소리\s*를?\s*(?:듣고|들어서|들어|듣곤[^\s.,!~]*)/g,'피곤해서');
+  t=t.replace(/기력\s*(?:없|딸린|떨어진|달린)\S*\s*(?:다는|단)\s*소리\s*를?\s*(?:듣고|들어서|들어)/g,'기력이 없어서');
+  t=t.replace(/시들\S*\s*(?:다는|단)\s*소리\s*를?\s*(?:듣고|들어서|들어)/g,'시들해서');
+  // 모델이 붙인 메타 괄호·메모·머리말·글자수 제거
+  t=t.replace(/[\(（][^)）]*(권장|권고|지침|규칙|예시|통일|불구|참고|주의|설명|따름|준수|반영|지시|요청|언급|활용|표현|자연스럽|강조|담았|녹였|작성|묘사|서술|문구|드러)[^)）]*[\)）]/g,'');
+  t=t.replace(/\s*[\(（]?\s*(참고로|요청하신|주의\s*[:：]|아래는|다음은|위 후기|위의 후기|상기).*$/,'');
+  t=t.replace(/^\s*[-*•·]*\s*[^.!?:：\n]{0,40}?(수정|변환|바꿔|바꾸|톤으로|톤의|후기로|리뷰로|다음과\s*같이|작성|생성|표현|정리|요약|옮겨|반영|변경|결과|버전)[^.!?:：\n]{0,25}?[:：]\s*[-*•]*\s*/,'');
+  t=t.replace(/[\(（]\s*\d+\s*자\s*[\)）]/g,'');                          // (132자) 표기
+  t=t.replace(/\s*\d+\s*자\s*\.{0,3}\s*$/,'');                           // 끝에 붙은 'NNN자...'
+  t=t.replace(/\s*[\(（][^)）]{0,25}[\)）]\s*$/,'');                       // 끝에 매달린 괄호(오프너 누수 등)
+  t=t.replace(/(아내|와이프|집사람|마누라|부인)\s*께서도/g,'$1도').replace(/(아내|와이프|집사람|마누라|부인)\s*께서는/g,'$1는').replace(/(아내|와이프|집사람|마누라|부인)\s*께서/g,'$1가').replace(/(아내|와이프|집사람|마누라|부인)\s*께(?!서)/g,'$1에게');
+  t=t.replace(/눈치채셨군요/g,'눈치챘네요').replace(/눈치채셨/g,'눈치챘').replace(/계시는군요/g,'있네요').replace(/계시군요/g,'있네요');
+  // ★영어는 여기서 제거하지 않는다 — passesGates의 영어 게이트가 재생성을 유발하게 두고(자연스러운 한글 대체), 3회 후에도 남으면 루프 밖에서 강제 제거.
+  t=t.replace(/\s+([.!?,~…])/g,'$1');                                    // 부호 앞 공백 정리
+  t=t.replace(/\.{4,}/g,'...');                                          // 마침표 4개+ -> 말줄임 3개
+  t=t.replace(/[\(（\s\-,·]+$/,'');                                       // 끝 잡기호
+  t=t.replace(/\s{2,}/g,' ').trim();
+  return t;
+}
+
+/* ── Trim-Len: 종결어미 경계에서만 컷 ── */
+function trimLen(t,maxLen){
+  if(!t)return''; t=t.trim();
+  if(t.length<=maxLen)return t;
+  const re=/(요|죠|네|네요|어요|아요|에요|데요|군요|음|슴|함|됨|임|봄|짐|움|듯|중임|다|니다|습니다|았다|었다|겠다|는다|군|걸)([.!?~…]*)\s+/g;
+  const bounds=[]; let m;
+  while((m=re.exec(t))){
+    const after=t.slice(m.index+m[0].length);
+    if(/^(않|못)/.test(after)||/^보(니|면|다|던|자|아|여|는|구)/.test(after))continue;
+    const before=t.slice(0,m.index+m[0].length);
+    if(/(^|\s)다[.!?~…]*\s+$/.test(before)||/(마다|보다|부터|처럼|만큼|대로|밖에|라고|이라|에다|한테|보단)[.!?~…]*\s+$/.test(before))continue;
+    if(/(처음|다음|마음|믿음|웃음|졸음|젊음|걸음|울음|얼음)[.!?~…]*\s+$/.test(before))continue;
+    bounds.push(m.index+m[0].length);
+  }
+  let out;
+  if(bounds.length){ let pick2=bounds.filter(b=>b<=maxLen+1).pop(); if(pick2==null)pick2=bounds[0]; out=t.slice(0,pick2).trim(); }
+  else out=t;
+  // 꼬리 조사 제거
+  const tail=/\s(그리고|그래도|근데|그런데|하지만|또한|또|및|보니|지만|다만|거나|든지|는데|은데|면|으면|니까|더라도|도|고|만|를|을|에|의|로|으로|와|과|랑|이랑|한|좀|더|막|꽤|약간|거의|몇|번)$/;
+  while(tail.test(out))out=out.replace(tail,'').trim();
+  return out.trim();
+}
+
+/* ── 노년 특수 띄어쓰기 3종 (force=true면 강제) ── */
+function insertAraeA(t,persona,typoLv,force){
+  if(!t)return t;
+  if(force===undefined){ if(typoLv<1)return t; if(!/50대|60대/.test(persona))return t; if((rand(100)+1)>typoLv*10)return t; }
+  else if(!force)return t;
+  const mode=pick(['araea','dotglue','dotslow']);
+  const words=t.split(/\s+/).filter(Boolean);
+  if(words.length<=1)return t;
+  const conn=/(고|며|니|니까|면|서|어서|아서|여서|라서|길래|는데|은데|는대|지만|더니|다가|거나|든지|라고|다고|냐고|자고|네요|어요|아요|에요|예요|요|죠|군요|구요|더라고|더라|구나|던데|텐데)$/;
+  const topic=/(은|는|이|가|도|만|까지|부터)$/;
+  const glue=(mode!=='dotslow');
+  let out=words[0], run=words[0].length;
+  for(let i=1;i<words.length;i++){
+    const prev=words[i-1];
+    const pause=conn.test(prev)||(topic.test(prev)&&(rand(100)+1)<=40)||(run>=11);
+    if(pause){
+      const sep = mode==='araea'?'ㆍ' : mode==='dotglue'?'.' : '.'.repeat(pick([2,2,3]));
+      out+=sep+words[i]; run=words[i].length;
+    } else if(glue){ out+=words[i]; run+=words[i].length; }
+    else { out+=' '+words[i]; run+=words[i].length+1; }
+  }
+  return out;
+}
+
+/* ── 맞춤법 오류 주입 ── */
+function applyMisspell(t,typoLv){
+  if(typoLv<1||!t)return t;
+  const chance2={1:25,2:45,3:70}[typoLv];
+  if((rand(100)+1)>chance2)return t;
+  const able=MISSPELL.filter(([a])=>t.includes(a));
+  if(!able.length)return t;
+  const n=(typoLv>=2&&(rand(100)+1)<=35)?2:1;
+  shuf(able).slice(0,n).forEach(([a,b])=>{ t=t.replace(a,b); });
+  return t;
+}
+
+/* ── 키워드 시그니처 기반 재배치 (3칸 간격) ── */
+function arrangeSpaced(items,minGap,diet){
+  const KW = diet ? DIET_REPEAT_KW : REPEAT_KW;
+  const pool=items.map(it=>{
+    const sig=KW.filter(kw=>it.includes(kw));
+    if(diet){
+      if(/\d\s*(kg|키로|킬로|킬로그램)/.test(it))sig.push('~WEIGHT');           // 구체 감량 후기끼리 떨어뜨림
+      if(/(밖에|도)\s*안\s*(됐|됏|됫|되)/.test(it))sig.push('~WLREV');           // '아직 N밖에 안 됐다' 역순 구조
+    }
+    const norm=it.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\sㆍ.!?…]/gu,'');
+    if(norm.length<=45)sig.push('§'+norm);
+    return {t:it,kw:sig};
+  });
+  let p=shuf(pool); const arr=[];
+  while(p.length){
+    const recent=[]; const look=Math.min(minGap-1,arr.length);
+    for(let j=1;j<=look;j++)recent.push(...arr[arr.length-j].kw);
+    let idx=-1;
+    for(let i=0;i<p.length;i++){ if(!p[i].kw.some(k=>recent.includes(k))){idx=i;break;} }
+    if(idx<0)idx=0;
+    arr.push(p[idx]); p.splice(idx,1);
+  }
+  return arr.map(x=>x.t);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   세라펙스(다이어트) 전용 — 정력 제품과 별개의 프롬프트/레시피/후처리 경로
+   (PowerShell 세라펙스 생성기 로직 포팅)
+   ══════════════════════════════════════════════════════════════ */
+const DIET_PERSONAS=['20대 초반 대학생 여성','20대 초반 취준생 여성','20대 후반 직장인 여성','30대 초반 직장인 여성','30대 후반 주부','30대 워킹맘','40대 직장인 여성','40대 주부','50대 주부'];
+const CHANGE_FOCUS=['식욕이 줄어든','포만감이 오래가는','야식 생각이 덜 드는','간식·군것질이 줄어든','저녁 폭식이 줄어든','뱃살·바지핏이 덜 답답한','몸이 가벼워진','붓기가 덜한','예전보다 먹는 양이 줄어든','식곤증·식후 졸림이 줄어든'];
+const GLP_DRUGS=['마운자로','위고비'];
+const DRUG_ANGLES=['가격이 부담돼서','주삿바늘이 무서워서','맞으러 병원 가기 번거로워서','부작용이 걱정돼서','맞기가 무서워서','효과는 궁금한데 부담돼서','비용이 만만찮아서','매주 맞는 게 번거로울 것 같아서','끊고 나서 유지할 겸'];
+const DRUG_TRANS=['이걸로 시작했어요','이걸로 갈아탔어요','이거부터 먹어봤어요','그래서 이거 골랐어요','알약이 편할 것 같아서요','부담 없는 걸로 바꿨어요','이걸로 먹어보는 중이에요','이거 한번 믿어보기로 했어요'];
+const TASTE_WORDS=['새콤한 맛','새콤달콤한 맛','달달한 맛','상큼한 맛','달콤한 맛','새콤달콤','새콤상큼한 맛','사과사탕 같은 맛','캔디 같은 맛','상큼한 향','사탕 같은 맛','과일향'];
+const WEIGHT_LOSS=[{p:'1주',lo:1,hi:2},{p:'2주',lo:2,hi:4},{p:'3주',lo:3,hi:5},{p:'4주',lo:4,hi:6},{p:'한 달',lo:5,hi:8},{p:'두 달',lo:7,hi:10},{p:'세 달',lo:9,hi:12}];
+const KG_UNITS=['kg','키로','킬로','킬로그램'];
+const DIET_OPENERS=['먹고 며칠 되니까','한 달쯤 지나니','요즘','퇴근하고','야근하고','주말에','친구가 추천해서','다이어트 계속 실패하다가','며칠 전부터','받자마자','회식 많은데','한 통 거의 다 먹어가는데','아이 재우고','밥 먹고 나서'];
+const DIET_REPEAT_KW=['식욕','입맛','군것질','간식','야식','폭식','과식','포만','든든','붓기','부었','바지','뱃살','체형','핏','식곤증','졸','가벼','위고비','마운자로','복합효소','애사비','식이팽창','새콤','달콤','사과','배송','포장','도착','서비스','사은품','챙겨주세요','많이 파세요'];
+const DIET_BUILTIN_BY_END={
+  1:['야식 생각이 덜 들어요 계속 먹어볼라고요','배송 빠르네요 포장도 깔끔했어요','저녁에 폭식하던 게 좀 줄었네요','포만감이 오래가서 식사량이 줄었어요 만족해요','새콤해서 챙겨먹기 편해요','별 기대 안 했는데 생각보다 괜찮네요'],
+  2:['야식 생각 덜 듦 계속 먹는중임','간식 손이 덜 가는 느낌임 재구매함','배송 빠름 포장도 깔끔했음','포만감 오래가서 식사량 줄었음','새콤해서 먹기 편함','별 기대 안 했는데 괜찮았음'],
+  3:['야식 생각이 덜 듭니다 계속 먹어보겠습니다','저녁 폭식이 줄어든 것 같습니다','배송 빠르고 포장도 깔끔했습니다','포만감이 오래가서 식사량이 줄었습니다 만족합니다','새콤해서 챙겨먹기 편합니다','별 기대 안 했는데 생각보다 괜찮습니다']
+};
+function styleShotsForDiet(useEnd){
+  let m=SHORT_POOL.filter(s=>END_RES[useEnd].test(s));
+  if(m.length<8)m=m.concat(DIET_BUILTIN_BY_END[useEnd]);
+  return m.length?m:DIET_BUILTIN_BY_END[useEnd];
+}
+/* 여성 이모지/이모티콘 (세라펙스 Get-Emo 포팅: 종류 다양·ㅋ/ㅎ 1~6개 랜덤) */
+function getEmoDiet(persona){
+  let band=30;
+  if(/60대|70대/.test(persona))band=60; else if(/50대/.test(persona))band=50;
+  else if(/40대/.test(persona))band=40; else if(/30대\s*후반/.test(persona))band=35;
+  else if(/30대/.test(persona))band=30; else if(/20대\s*초반|대학생|취준/.test(persona))band=22;
+  else if(/20대/.test(persona))band=27;
+  const M={
+    22:[50,80,['💖','💗','💕','🩷','💞','💓','♥','♡','🥰','😍','🥹','😭','😂','🤭','😊','😋','✨','💫','🌟','⭐','🍀','🌸','🙌','👏'],['^^','^-^','*^^*','^0^','^.^','ㅎ','ㅋ','~','~~','!','!!',':)',';;','^^*']],
+    27:[40,70,['💖','💗','💕','🩷','💞','♥','🥰','😍','🥹','😭','😂','😊','😋','✨','💫','👍','🌸','🙌'],['^^','^-^','^^*','^0^','ㅎ','ㅋ','~','~~','!',':)',';;']],
+    30:[28,64,['😊','💗','💕','♥','🥰','😍','👍','✨','💫','🙂','🌸'],['^^','^-^','ㅎ','ㅋ','~','!',':)']],
+    35:[18,61,['😊','👍','💗','🙂','✨','🥰','♥'],['^^','~','ㅎ','!']],
+    40:[12,0,[],['^^','~','!','ㅎ']],50:[4,0,[],['^^','~~','ㅎ']],60:[2,0,[],['^^','~']]};
+  const c=M[band]||M[30];
+  if((rand(100)+1)>c[0])return'';
+  if(c[2].length&&(rand(100)+1)<=c[1])return ' '+pick(c[2]);
+  let tok=pick(c[3]);
+  if(/^[ㅋㅎ]$/.test(tok))tok=tok.repeat(rand(6)+1);
+  return /^[\^~!*]/.test(tok)? tok : ' '+tok;
+}
+/* 감량 후기 도입부 5종 프레임(판박이 방지) */
+function dietWlFrames(r){
+  const p=r.wl.p, n=r.wlKg+r.wlUnit;
+  return[
+    `첫머리에 '${p} 만에 ${n} 빠졌다'처럼 결과부터 말한다`,
+    `계기·상황(회식·옷·건강검진·운동 등)을 한 마디 먼저 꺼낸 뒤, 중간이나 끝에서 '${p} 만에 ${n} 정도 빠졌다'고 슬쩍 끼워 넣는다`,
+    `끝부분에서 '어느새 ${p} 만에 ${n} 빠졌더라'는 식으로 마무리한다`,
+    `'${n} 빠졌는데 아직 ${p}밖에 안 됐다'처럼 숫자와 기간 순서를 뒤집어 말한다`,
+    `체감(식욕·포만감 등)을 먼저 말한 뒤 '그러다 보니 ${p} 동안 ${n} 줄었다'고 이어 말한다`];
+}
+/* 다이어트 레시피 굴리기 */
+function rollRecipeDiet(prod){
+  const r={lowEffort:false};
+  r.persona=pick(DIET_PERSONAS);
+  r.narrator='본인';
+  if(OPT.end>=4){
+    const yng=/20대/.test(r.persona), old=/50대|60대/.test(r.persona), e=rand(100)+1;
+    r.useEnd = yng?(e<=82?1:2) : old?(e<=40?1:3) : (e<=65?1:e<=92?3:2);
+  } else r.useEnd=OPT.end;
+  r.isNarrative=chance(20);
+  const roll=rand(100)+1;
+  r.isDelivery=(!r.isNarrative)&&roll<=20;
+  r.isDrug=(!r.isDelivery)&&roll<=35;
+  if(r.isDrug){ r.drugPick=pick(GLP_DRUGS); r.drugAngle=pick(DRUG_ANGLES); r.drugTrans=pick(DRUG_TRANS); }
+  r.mentionIng=(!r.isDelivery)&&(!r.isDrug)&&chance(12);
+  if(r.mentionIng)r.ingPick=pick(prod.ingredients);
+  r.isWeight=(!r.isDelivery)&&(!r.isDrug)&&chance(33);
+  if(r.isWeight){ r.wl=pick(WEIGHT_LOSS); r.wlKg=rand(r.wl.hi-r.wl.lo+1)+r.wl.lo; r.wlUnit=pick(KG_UNITS); r.wlFrame=pick(dietWlFrames(r)); }
+  r.mentionTaste=(!r.isDelivery)&&chance(22); r.tastePick=pick(TASTE_WORDS);
+  r.focusPick=pick(CHANGE_FOCUS);
+  r.banList=shuf(CLICHES).slice(0,pick([3,4,5])).join(', ');
+  r.openerHint=shuf(DIET_OPENERS).slice(0,3).join("', '");
+  if(r.isNarrative){ r.targetLen=rand(61)+60; r.cap=r.targetLen+25; r.lenText=`계기·상황부터 변화·결과까지 끊김 없이 이어 쓴 서사형. 공백 포함 대략 ${r.targetLen}자. 광고처럼 과장해 늘이진 마라.`; }
+  else if(OPT.len===1){ r.targetLen=rand(11)+14; r.cap=r.targetLen+8; r.lenText='아주 짧게 한 문장 안팎으로.'; }
+  else if(OPT.len===2){ r.targetLen=rand(31)+60; r.cap=r.targetLen+25; r.lenText='조금 길어도 되지만 광고처럼 늘이진 마라.'; }
+  else { r.targetLen=rand(30)+16; r.cap=r.targetLen+10; r.lenText=`배경·계기 설명 없이 먹고 난 결과·체감만 짧게. 공백 포함 대략 ${r.targetLen}자 안팎.`; }
+  r.shots=shuf(styleShotsForDiet(r.useEnd)).slice(0,5);
+  r.shipTalk=(!r.isDelivery)&&(!r.isDrug)&&(!r.isWeight)&&chance(10);
+  r.giftMode=chance(8);
+  r.useEupnida=false;
+  r.elderForce=/50대|60대/.test(r.persona)&&chance(20);
+  r.emo=getEmoDiet(r.persona);
+  return r;
+}
+/* 다이어트 시스템 프롬프트 */
+function buildSystemDiet(prod,r){
+  const shotBlock=r.shots.map(s=>'- '+s).join('\n');
+  let s=`너는 온라인 쇼핑몰에서 다이어트·식단 보조제 '${prod.name}'을 사서 먹어본 평범한 한국 사람이다(예: ${r.persona}). 너는 후기 작가가 아니라 귀찮은데 그냥 대충 별점 후기 남기는 진짜 구매자다.
+'${prod.name}'은(는) 새콤달콤한 맛이 나는 씹어 먹는 정제(식약처 HACCP)이고, 식전에 챙겨 먹는 식단 컷팅·다이어트 보조제다. 식욕 억제·포만감·혈당 관리를 돕는 성분과 복합효소·애사비·식이팽창 성분이 들어 있다.
+★말투 규칙(가장 중요): ${END_TEXTS[r.useEnd]} 아래 예시에 다른 말투가 섞여 있어도 너는 무조건 ${END_NAMES[r.useEnd]} 로만 쓴다.
+반드시 지킬 것:
+(1) 광고·홍보 문구처럼 쓰지 마라('강추/대박/강력 추천/추천드립니다/만족스럽습니다' 등 금지).
+(2) 번역기·자기소개서 같은 딱딱한 문어체 금지. 카톡 하듯 짧고 툭툭 끊어 써라.
+(3) 영어 단어 금지(diet, slim 등). '위고비/마운자로'는 한글 제품명이라 OK. 'GLP-1' 같은 영어는 쓰지 마라.
+(4) 한 후기 안에서 같은 단어를 두 번 이상 반복하지 마라.
+(5) 느낌표 남발·이모지 금지(이모티콘은 시스템이 따로 붙인다). 별점 언급 금지.
+(8) 효능을 의약품처럼 단정하지 마라: '지방분해/지방연소/체지방 분해' 금지. 변화는 식욕·포만감·야식·간식·바지핏·붓기·몸 가벼움 등 체감 위주.
+(9) 새콤달콤한 맛 씹어 먹는 정제다. 맛·향은 가끔 한 마디만('사과맛'만 반복 금지). '쓰다/비리다' 부정 맛평가·맛 얘기만 길게 늘어놓기 금지.
+(10) 후기 주체는 본인(주로 20~50대 여성). 다이어트·식단·야식·간식·옷핏·뱃살·산후·갱년기 등 계기는 자유. ★정력·발기·탈모 같은 이 제품과 무관한 얘기는 절대 금지.
+(11) 긍정·만족 톤만. 효과없음·실망·불만·부작용·환불·후회, '잘 모르겠다/좋은지 모르겠다' 같은 불확실·회의 표현 금지.
+(12) 시간 흐름 모순 금지: 아직 안 먹은(받자마자/내일부터) 후기인데 맛·식감·효과를 단정하지 마라. 안 먹어봤으면 기대로만.
+(13) ★'폭식했다/과식했다/많이 먹었다'처럼 본인이 폭식·과식한 것처럼 쓰지 마라. 세라펙스는 그걸 줄여주는 제품이니, 폭식·과식·군것질·식욕은 '줄었다/덜 하게 됐다/안 당긴다'처럼 줄어든 쪽으로만 써라.
+(14) ★제품은 통에 든 씹어 먹는 정제다. 양을 셀 땐 '한 통/한 상자/한 박스/한 알'로만 말하고 '봉지/포'라고 쓰지 마라.
+(6) ${r.lenText}
+(7) 후기 본문 한 개만 출력. 머리말·설명·따옴표·번호·괄호 설명·글자수 표기 금지. 곧바로 후기 본문만.`;
+  if(r.isDelivery){ s+=`\n이번 후기는 효과·성분·맛 얘기 없이 '배송/포장/도착'만 짧게 한두 마디로 끝낸다(예: '배송 빠르네요 포장도 꼼꼼해요','주문하고 금방 왔어요','포장 깔끔하게 잘 왔어요'). 먹은 느낌·효과는 넣지 마라.`; }
+  else if(r.isDrug){ s+=`\n이번 후기는 비싼 비만약 '${r.drugPick}'를 언급하며 세라펙스를 그 대신 택한 맥락으로 시작한다. 이번엔 '${r.drugPick}'가 '${r.drugAngle}' 라는 이유로 '${r.drugTrans}' 같은 식으로 풀되, ★그 표현을 토씨까지 베끼지 말고 네 말로 살짝 바꿔 써라(매번 '가격이 부담돼서 이걸로 시작했는데'처럼 똑같은 도입부 금지). '${r.drugPick}'은 꼭 한 번 들어가고, '주사/주삿바늘'을 쓸 땐 반드시 '${r.drugPick}'과 같은 문장에. 그 뒤에 세라펙스 먹고 느낀 변화를 짧게 덧붙여라.`; }
+  else if(r.isWeight){ s+=`\n이번 후기는 이렇게 쓴다 — ${r.wlFrame}. ★매번 '${r.wl.p} 만에 ${r.wlKg}${r.wlUnit} 빠졌어요'처럼 똑같은 도입부로 시작하지 마라. 숫자(${r.wlKg}${r.wlUnit})·기간(${r.wl.p})은 바꾸지 말 것. 곁들이는 체감도 '간식이 안 당겨서'만 반복하지 말고 '${r.focusPick}'처럼 다양하게. '치료/지방분해' 같은 의약품식 표현은 쓰지 마라.`; }
+  else { s+=`\n이번 후기는 '${r.focusPick}' 변화를 중심 소재로 자연스럽게 풀어라(이 변화 위주로, 억지로 여러 효과를 한꺼번에 나열하지 마라).`; }
+  if(r.isNarrative)s+=`\n★계기·상황(왜 시작했는지)부터 먹는 동안의 변화·결과까지 단계 생략 없이 자연스럽게 이어 써라(첫머리 예: '${r.openerHint}').`;
+  else if(!r.isDelivery)s+=`\n★문장 첫머리를 효과 표현으로 시작하지 말고 계기·시간·상황으로 다양하게 열어라(예: '${r.openerHint}').`;
+  if(r.mentionIng&&!r.isDrug&&!r.isWeight)s+=`\n세라펙스 성분 '${r.ingPick}'을 자연스럽게 한 번만 툭 언급한다(예: '${r.ingPick} 들어있어서 믿고 샀음'). 효능 설명을 길게 하지 마라.`;
+  if(r.mentionTaste&&!r.isDelivery)s+=`\n맛·향을 한 마디 언급한다면 '사과맛'만 쓰지 말고 '${r.tastePick}'처럼 표현하라(짧게, 억지로 넣지 말 것).`;
+  if(/20대\s*초반|대학생|취준/.test(r.persona))s+=`\n20대 초반 온라인 말투. 'ㅎㅎ'는 잔잔한 만족, 'ㅋㅋ'는 가벼운 자랑·민망에 가끔. 긍정·담담한 문장에 우는 'ㅠㅠ' 금지. '~용/~욤/~당' 귀여운 어미 가끔. '읍니다' 금지.`;
+  else if(/40대|50대|60대/.test(r.persona))s+=`\n정중하고 담백하게 '습니다/해요'체로. 신조어·이모티콘 자제. ★'읍니다' 옛 표기는 절대 쓰지 마라.`;
+  s+=`\n여성이라 '~것 같아요/~더라구요' 같은 완곡한 표현과 생활감 있는 말투를 자연스럽게.`;
+  if(r.shipTalk)s+=`\n배송·포장 한 마디나 판매자에게 사은품(서비스)을 더 달라고 요청하는 말을 자연스럽게(예: '배송 빠르네요','서비스도 좀 챙겨주세요'). ★사은품·서비스를 '받아서 감사'처럼 이미 받은 것처럼 쓰지 말고 달라고 조르는 쪽으로.`;
+  if(r.giftMode)s+=`\n가족·지인이 추천하거나 사준 맥락을 한 번 자연스럽게(딸이 사줘서·엄마 드리려고·친구가 추천해서 등).`;
+  s+=`\n★어휘 다양화: 흔한 상투어(${r.banList})는 이번 후기에서 쓰지 마라. 다른 단어·문장 구조로.`;
+  s+=`\n아래는 '딱 이런 톤·길이·맞춤법'이라는 실제 후기 예시다. 내용은 베끼지 말고 말투·분위기만 흉내 내라:\n${shotBlock}`;
+  return s;
+}
+/* 다이어트 후처리 */
+function cleanOutputDiet(t,prod){
+  if(!t)return'';
+  t=t.trim();
+  t=t.replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}️‍❤♥♡]/gu,'');
+  t=t.replace(/_/g,'').replace(/\s*#[^\s#]+/g,'').replace(/[一-鿿]/g,'');
+  t=t.replace(/。/g,'. ').replace(/[，、]/g,', ').replace(/！/g,'!').replace(/？/g,'?').replace(/；/g,'; ').replace(/：/g,': ');
+  t=stripMeta(t);
+  t=t.replace(/\s*\r?\n\s*/g,' ').replace(/[!！]{2,}/g,'!').replace(/[~∼]{2,}/g,'~');
+  for(const w of ADWORDS)t=t.split(w).join('');
+  t=t.replace(/\s{2,}/g,' ').trim().replace(/^["'“”]+|["'“”]+$/g,'');
+  t=t.replace(/^[\s\\\-_=~·.,!?ㆍ*•]+/,'');
+  t=t.replace(/(니다)\s*합니다/g,'$1').replace(/(니다)\s*요/g,'$1');
+  t=t.replace(/GL\s*1\s*-?\s*PA/gi,'특허성분').replace(/지[앨엘]\s*원\s*피\s*에\s*이/g,'특허성분');
+  t=t.replace(/삭센다/g,'위고비');
+  t=t.replace(/GLP\s*-?\s*1/gi,()=>pick(GLP_DRUGS));
+  // 불확실·회의 표현 제거
+  t=t.replace(/\s*(효과|효능|성분|이게|이거|제품)[은는이가도]?\s*(좋은지|괜찮은지|좋은\s*건지)?\s*(잘\s*)?모르(겠|겟)\S*/g,' ');
+  t=t.replace(/\s*(잘\s*)?모르(겠|겟)(지만|는데|어요|습니다|네요|음|구요|다)[.!~]*/g,' ');
+  // 사은품·서비스 '받아서 감사' -> '달라고 요청'
+  t=t.replace(/(사은품|서비스|샘플|증정품|선물|덤|쿠폰)\s*(을|를|도|까지|은|는|이|가)?\s*[^.!?~…]{0,10}?(주셔서|주시고|줘서|보내주셔서|챙겨\s*주셔서|동봉\S*|받아서|받았\S*)[^.!?~…]{0,14}?(감사\S*|고맙\S*|좋\S*|만족\S*)/g,'$1도 좀 챙겨주세요');
+  // 주사 표현엔 브랜드 동반(없으면 첫 주사 앞에 브랜드 삽입)
+  if(/주삿바늘|주사바늘|주사기|주사제|주사/.test(t)&&!/위고비|마운자로/.test(t))
+    t=t.replace(/(주삿바늘|주사바늘|주사기|주사제|주사)/, pick(GLP_DRUGS)+' $1');
+  // 의약품식 표현 -> 모호
+  t=t.replace(/지방\s*분해|체지방\s*분해|지방\s*연소|체지방\s*연소/g,'관리되는 느낌');
+  // 봉지(X) -> 통/상자/박스 (세라펙스는 통에 든 씹어먹는 정제)
+  t=t.replace(/한\s*봉지/g,()=>pick(['한 통','한 상자','한 박스'])).replace(/(\d+|두|세|네|다섯|몇)\s*봉지/g,'$1통').replace(/봉지/g,'통');
+  t=t.replace(/[\(（][^)）]*(권장|예시|참고|주의|설명|반영|지시|요청|언급|표현|자연스럽|강조|작성|묘사|문구|드러)[^)）]*[\)）]/g,'');
+  t=t.replace(/\s*[\(（]?\s*(참고로|요청하신|주의\s*[:：]|아래는|다음은|위 후기|상기).*$/,'');
+  t=t.replace(/[\(（]\s*\d+\s*자\s*[\)）]/g,'').replace(/\s*\d+\s*자\s*\.{0,3}\s*$/,'');
+  t=t.replace(/\s*(이모티콘|이모지)[^.!?]*$/,'');
+  t=t.replace(/\s+([.!?,~…])/g,'$1').replace(/\.{4,}/g,'...');
+  t=t.replace(/[\(（\s\-,·]+$/,'').replace(/\s{2,}/g,' ').trim();
+  return t;
+}
+/* 다이어트 재생성 게이트 */
+function passesGatesDiet(t,r,prod){
+  if(!t)return false;
+  if(/[A-Za-z]/.test(t))return false;                                  // 영어(GLP-1은 후처리서 한글 치환됨)
+  if((prod.forbidden||[]).some(w=>t.includes(w)))return false;         // 정력·탈모 등 무관어
+  if(/지방\s*분해|체지방\s*분해|지방\s*연소|치료|완치/.test(t))return false; // 의약품식
+  if(/효과\s*없|실망|불만|환불|반품|후회|별로|속았|그저\s*그|잘\s*모르(겠|겟)/.test(t))return false; // 부정·불확실
+  if(/주삿바늘|주사바늘|주사기|주사제|주사/.test(t)&&!/위고비|마운자로/.test(t))return false; // 주사인데 브랜드 없음
+  return true;
+}
+
+/* ── 시스템 프롬프트 빌더 ── */
+function buildSystem(prod,r){
+  if(prod.type==='diet')return buildSystemDiet(prod,r);
+  const shotBlock=r.shots.map(s=>'- '+s).join('\n');
+  const head = r.narrator==='아내'
+    ? `너는 ${prod.kind} '${prod.name}'을 남편에게 챙겨 먹이는 평범한 한국 아내다(남편은 ${r.persona}). 남편의 밤일·컨디션 변화를 보고 점잖고 담백하게 별점 후기를 남긴다. 노골적인 비속어나 적나라한 묘사는 쓰지 않는다.`
+    : `너는 온라인 쇼핑몰에서 ${prod.kind} '${prod.name}'을 사서 먹어본 평범한 한국 남자다(예: ${r.persona}). 너는 후기 작가가 아니라 귀찮은데 그냥 대충 별점 후기 남기는 진짜 구매자다.`;
+  let s = `${head}
+★말투 규칙(가장 중요): ${END_TEXTS[r.useEnd]} 아래 예시에 다른 말투가 섞여 있어도 너는 무조건 ${END_NAMES[r.useEnd]} 로만 쓴다.
+${prod.sexTexts[OPT.sex]}
+반드시 지킬 것:
+(1) 광고·홍보 문구처럼 쓰지 마라('강추/대박/강력 추천/추천드립니다/만족스럽습니다/향상되었습니다' 등 광고·번역투 금지).
+(2) 번역기·자기소개서 같은 딱딱한 문어체 금지. 한국 사람이 카톡 하듯 짧고 툭툭 끊어 써라.
+(3) 영어·외국어 단어 절대 금지. 전부 한글로만.
+(4) 매번 똑같은 식으로 쓰지 말고 다양하게. 한 후기 안에서 같은 단어를 두 번 이상 반복하지 마라.
+(5) 느낌표 남발·이모지 금지. 별점 언급도 하지 마라.
+(8) 제형·복용방식·포장 표현 금지: '알약/캡슐/정/정제','한 알/두 알','봉지/한 봉지'(${prod.name}은 환=통 단위), '짜먹기/씹어먹기' 같은 묘사 금지. 복용은 횟수로만.
+(9) 맛·향·냄새·식감 평가 절대 금지(환이라 맛으로 평가하는 제품 아님). 몸의 변화만 써라.
+(10) 후기 주체는 본인(성인 남성) 또는 아내가 남편 얘기. ★자녀(아들·딸·자식·손주·조카)는 절대 등장 금지(먹는 것도, 사주는 것도). 독자에게 말 거는 투·존댓말('~시는군요','아내께서') 금지. 1인칭으로만.
+(11) 모든 후기는 긍정·만족 톤만. 효과없음·실망·불만·부작용은 절대 금지. 효과 표현은 좋아진 방향으로만.
+(12) 성분은 오직 '${prod.ingAllowed}' 만 언급 가능. 그 외 성분(마그네슘·비타민·홍삼 등) 절대 금지.
+(13) 자기 몸 상태를 '~다는 소리 듣고'로 쓰지 말고 '피곤해서'처럼 직접 이유로.
+(6) ${r.lenText}
+(7) 후기 본문 한 개만 출력. 머리말·설명·따옴표·번호·괄호 설명·글자수 표기 금지. 곧바로 후기 본문만.`;
+  // 설계도(테마/구조/보이스)
+  if(r.richVary){
+    s+=`\n[이번 후기의 설계도 — 반드시 따른다]`;
+    s+=`\n· 중심 소재: ${r.theme}. 이 소재 하나를 중심으로 새로 써라. 여러 효과를 줄줄이 나열하지 말고 집중하라.`;
+    if(!r.longOut)s+=`\n· 서술 방식: ${r.struct.d}`;
+    s+=`\n· 화자: ${r.voice}`;
+    s+=`\n· 흔한 첫머리('요즘~','나이 드니~')나 남들과 똑같은 문장 틀을 답습하지 말고 새로 구성하라.`;
+  }
+  if(r.longOut)s+=`\n★원본이 길어도 핵심 1~2가지만 골라 자연스러운 카톡체로. 나열·광고식 늘이기·에세이체 금지.`;
+  // 성기/강직도 (수위3 본인)
+  if(OPT.sex===3&&r.narrator!=='아내'){
+    if(r.dickPick==='대물')s+=`\n이번 후기는 '대물'을 '대물이 됨 / 대물 돼서'처럼 (성기가 커진다는 뜻으로) 쓴다. '고추' 금지.`;
+    else s+=`\n남성 성기를 가리킬 땐 주로 '${r.dickPick}' 표현을 자연스럽게 쓴다. '고추' 금지. 매번 다른 표현으로.`;
+    s+=`\n★성기 표현으로 문장을 시작하지 말고 계기·시간·상황으로 열어라(예: '${r.openerHint}'). 성기 표현은 중간/뒤에.`;
+    s+=`\n★강직도·발기 상태는 한두 단어만 반복하지 말고 다양한 표현으로(이번엔 '${r.hardPick}' 류 활용 가능).`;
+  }
+  if(/50대|60대/.test(r.persona)&&OPT.sex>=2)s+=`\n나이 지긋한 사람 후기이니 '절륜·회춘·한창때·청춘·밤일왕' 같은 옛스러운 표현을 한둘 섞어도 좋다.`;
+  if(r.mentionIng)s+=`\n이번 후기엔 성분(${r.ingPick})을 자연스럽게 한 번만 언급. ★원산지는 괄호로 쓰지 말고 문장 속에 풀어라(예: '국산 복분자 덕분에','블랙마카가 페루산이라던데'). 단, 아르기닌은 원산지(국산)를 붙이지 말고 그냥 '아르기닌'으로만. 똑같은 틀 반복 금지.`;
+  if(r.blockSteel)s+=`\n'강철'이라는 단어는 쓰지 마라.`;
+  if(r.giftMode)s+=`\n누군가(친구·지인) 추천·선물로 받은 맥락을 한 번 자연스럽게. 단 먹는 사람은 본인(성인 남성), 자녀 등장 금지.`;
+  else s+=`\n본인이 먹으려고 직접 산 후기다. '친구/아내가 사줬다, 선물 받았다' 같은 맥락 금지.`;
+  if(r.useEupnida)s+=`\n나이 지긋한 사람이라 '습니다'를 옛날식 '읍니다'로(예: 좋습니다->좋읍니다).`;
+  if(r.shipTalk)s+=`\n배송·포장 칭찬이나 감사/응원을 한 마디 자연스럽게(예: '배송 빠르고 감사합니다','잘 받았습니다','많이 파세요'). 길게 늘이진 마라.`;
+  if(r.netSlang)s+=`\n★이 후기는 인터넷 커뮤니티(디씨/펨코 등)에 익숙한 젊은 남자가 쓴 거다. 아주 짧고 간결하게(한두 문장, 25자 안팎) 쓰고, 처음부터 끝까지 반말 음슴체 커뮤니티 말투로 통일해라(해요체·합니다체를 절대 섞지 마라). 끝맺음은 '~음/~함/~삼/~노/~누/~다ㅋ' 같은 반말로만 한다. 'ㄹㅇ'(진짜)·'ㅇㅈ'(인정)·'ㄷㄷ'·'ㅆㅅㅌㅊ'(최상)·'ㄱㅇㄷ'·'개-'(개딱딱/개좋음)·'존-'(존좋)·'클라스 다르다'·'ㅈㄴ'·'ㅗㅜㅑ'를 자연스럽게 섞어라. 예시: '이번에 잘 산 거 같음ㅋ 아랫도리 딱딱한 게 ㄹㅇ 좋노ㅋ'. ★특히 '~노/~누'는 이렇게 글 전체가 반말 커뮤니티 말투일 때만 쓰고, '~더라고요/~네요/~습니다' 같은 정상 말투 문장 사이에 절대 섞지 마라.`;
+  s+=`\n★어휘 다양화: 흔한 상투어(${r.banList})는 이번 후기에서 쓰지 마라. 다른 단어·문장 구조로.`;
+  if(r.banTrust)s+=`\n'믿고 먹습니다/믿고 먹어요'류 '믿고 먹-' 표현은 쓰지 마라.`;
+  if(r.banFirm)s+=`\n'빳빳','묵직','우뚝(섬/서다)' 표현은 쓰지 마라. 딱딱·단단·딴딴·곧추서다·텐트치다·철근 같다·돌덩이 같다 처럼.`;
+  if(r.adOpen)s+=`\n광고를 보고 알게 된 맥락이다. 첫머리를 '${r.adOpenPick}'처럼 자연스럽게 열어라(똑같은 말만 반복 금지).`;
+  else s+=`\n광고 얘기로 시작하지 말고 계기·시간·상황으로 열어라.`;
+  s+=`\n★다음 광고 도입부 표현은 절대 쓰지 마라: ${AD_BAN}.`;
+  if(!r.spouseReact)s+=`\n아내·집사람·와이프가 '놀란다/눈치챈다' 식 배우자 반응 묘사는 넣지 말고 본인 몸 변화 위주로.`;
+  s+=`\n아래는 '딱 이런 톤·길이·맞춤법'이라는 실제 후기 예시다. 내용은 베끼지 말고 말투·분위기만 흉내 내라:\n${shotBlock}`;
+  return s;
+}
+
+/* ── 한 후기 레시피 굴리기 (쿨다운/elderForce 상태 사용) ── */
+let dickRecent=[];
+function rollRecipe(prod,shotPool,longPool){
+  if(prod.type==='diet')return rollRecipeDiet(prod);
+  const r={};
+  // 길이/성의없음
+  r.lowEffort=false;
+  // 페르소나(연령 가중)
+  const ar=rand(100)+1;
+  let age = ar<=22?'30대':ar<=57?'40대':ar<=82?'50대':'60대';
+  r.elderForce=chance(25);                     // 생성분 25% 강제 특수 띄어쓰기
+  if(r.elderForce)age=pick(['50대','60대']);
+  r.persona=pick(PERSONAS.filter(p=>p.includes(age)))||pick(PERSONAS);
+  // 어미
+  if(OPT.end>=4){const e=rand(100)+1; r.useEnd=e<=55?3:e<=95?1:2;}else r.useEnd=OPT.end;
+  // few-shot은 longOut/netSlang 확정 후 아래에서 선택(어미별 매칭·단문/장문 분기)
+  // 성기 표현(쿨다운 6)
+  let dp=prod.dickWords.filter(w=>!dickRecent.includes(w)); if(!dp.length)dp=prod.dickWords;
+  r.dickPick=pick(dp); if(chance(5))r.dickPick='남근';
+  dickRecent.push(r.dickPick); if(dickRecent.length>6)dickRecent.shift();
+  r.hardPick=pick(prod.hardWords);
+  r.banFirm=chance(68); r.banTrust=chance(62);
+  r.narrator=chance(25)?'아내':'본인';
+  if(r.narrator==='아내'){ r.dickPick=pick(['그것','거기','그곳','물건','아래쪽']); r.banFirm=true; }
+  r.spouseReact=(r.narrator==='아내')||chance(30);
+  r.netSlang=/30대/.test(r.persona)&&r.narrator==='본인'&&chance(15); // 30대 본인 15%만 인터넷 커뮤(디씨/펨코) 말투. 고연령·아내 제외
+  r.useEupnida=/50대|60대/.test(r.persona)&&chance(30);
+  // 길이
+  r.longOut=(OPT.len===2)||(OPT.len===0&&false);
+  r.richVary=!r.netSlang;          // 커뮤 말투는 설계도(테마·구조) 미적용(PS richVary 제외)
+  r.theme=pick(THEMES); r.struct=pick(STRUCTS);
+  r.voice = r.narrator==='아내' ? '남편을 옆에서 지켜본 아내 시점. 본인 몸 얘기가 아니라 남편 변화를 관찰한 소감으로, 직접적 표현은 점잖게.'
+    : /30대/.test(r.persona)?'30대 남자. 짧고 직설적이고 가볍게.'
+    : /40대/.test(r.persona)?'40대 남자. 현실적이고 담백하게.'
+    : /50대/.test(r.persona)?'50대 남자. 점잖으면서 솔직하게.'
+    : '60대 남자. 천천히 풀어쓰듯 옛 표현 섞어.';
+  // 길이 텍스트/cap
+  if(OPT.len===1){ r.lenText='원본보다 짧게, 한 문장 안팎으로.'; r.cap=30; }
+  else if(OPT.len===2){ r.lenText='조금 길어도 되지만 광고처럼 늘이진 마라.'; r.cap=110; }
+  else { r.lo=r.struct.lo; r.hi=r.struct.hi; r.cap=r.hi+20; r.lenText=`대략 ${r.lo}~${r.hi}자 분량으로(서술 방식에 맞춰).`; }
+  if(r.netSlang){ r.cap=Math.min(r.cap,35); r.lenText='아주 짧고 간결하게(한두 문장, 25자 안팎) 써라.'; } // 커뮤 말투는 짧게
+  // few-shot 톤 풀: 짧은 출력=단문 그대로 / 긴 출력=장문 / 그 외=어미별 매칭(PS styleMatchByEnd·단문/장문 분기)
+  const shotSrc = (OPT.len===1 && SHORT_POOL.length) ? SHORT_POOL
+                : (r.longOut && LONG_POOL.length) ? LONG_POOL
+                : styleShotsFor(r.useEnd);
+  r.shots=shuf(shotSrc).slice(0,5);
+  r.mentionIng=chance(28);
+  if(r.mentionIng){
+    const picks=shuf(prod.ingredients).slice(0,pick([1,2]));
+    r.ingPick=picks.map(x=>prod.ingOrigin[x]?`${prod.ingOrigin[x]} ${x}`:x).join(', ');
+  } else r.ingPick='';
+  r.blockSteel=chance(92);
+  r.giftMode=chance(7);
+  r.banList=shuf(CLICHES).slice(0,pick([3,4,5])).join(', ');
+  r.openerHint=shuf(OPENERS).slice(0,3).join("', '");
+  r.shipTalk=chance(40);
+  r.adOpen=(!r.lowEffort)&&(!r.netSlang)&&chance(28);
+  r.adOpenPick=r.adOpen?pick(AD_OPENERS):'';
+  r.emo=getEmo(r.persona,r.narrator==='아내');
+  r.dickRepl=(r.dickPick==='대물')?'거시기':r.dickPick;  // 후처리 '고추' 치환용(대물은 명사로 못 써 대체)
+  return r;
+}
+
+/* ── Claude API 호출 ── */
+async function callClaude(apiKey,model,system,userMsg){
+  const res=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'content-type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model,max_tokens:400,system,messages:[{role:'user',content:userMsg}]})
+  });
+  if(!res.ok){const e=await res.text();throw new Error('API '+res.status+': '+e.slice(0,180));}
+  const j=await res.json();
+  const text=(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('').trim();
+  const u=j.usage||{};
+  const inTok=(u.input_tokens||0)+(u.cache_creation_input_tokens||0)+(u.cache_read_input_tokens||0);
+  return { text, inTok, outTok:(u.output_tokens||0) };
+}
+
+/* ══════════════ 크레딧/비용 추정·정산 ══════════════ */
+const PRICING = { 'claude-opus-4-8':{in:5,out:25}, 'claude-sonnet-4-6':{in:3,out:15} }; // per 1M tokens (USD)
+const USD_KRW = 1550;                                   // 환율 1$ = 1550원 (사용자 지정)
+const EST_IN_PER_CALL=1850, EST_OUT_PER_CALL=150, EST_RETRY=1.4; // 후기 1건당 개략 토큰·재시도 계수
+function fmtUsd(u){ return '$'+(u<1?u.toFixed(4):u.toFixed(2)); }
+function fmtKrw(u){ return '₩'+Math.round(u*USD_KRW).toLocaleString(); }
+function curPrice(){ return PRICING[document.getElementById('model').value]||PRICING['claude-opus-4-8']; }
+function splitCounts(){
+  const N=Math.max(1,parseInt(document.getElementById('genCount').value)||30);
+  const ratio=(parseInt(document.getElementById('shortRatio').value)||0)/100;
+  const shortCnt=Math.round(N*ratio);
+  return { N, shortCnt, genCnt:Math.max(0,N-shortCnt) };
+}
+function updateCostEstimate(){
+  const {shortCnt,genCnt}=splitCounts();
+  const p=curPrice();
+  const inTok=genCnt*EST_RETRY*EST_IN_PER_CALL, outTok=genCnt*EST_RETRY*EST_OUT_PER_CALL;
+  const usd=inTok/1e6*p.in + outTok/1e6*p.out;
+  const box=document.getElementById('estBox');
+  if(box) box.innerHTML=
+    `예상 비용 <span class="big">${fmtUsd(usd)}</span> ≈ <b>${fmtKrw(usd)}</b><br>`+
+    `≈ 크레딧 <b>${usd.toFixed(4)}</b> 차감 예상<br>`+
+    `<span style="color:var(--text3)">AI 생성 ${genCnt}건 + 단문 ${shortCnt}건 · 단문은 무료(API 미사용) · 1$=${USD_KRW}원</span><br>`+
+    `<span style="color:var(--text3)">※ 토큰·재시도 추정치라 실제와 다를 수 있음</span>`;
+  const ch=document.getElementById('costHint');
+  if(ch) ch.textContent=`예상 비용 ${fmtUsd(usd)} ≈ ${fmtKrw(usd)} · AI ${genCnt} + 단문 ${shortCnt}`;
+}
+function getBalance(){ const v=parseFloat(document.getElementById('balance').value); return isNaN(v)?null:v; }
+function applyActualCost(totalIn,totalOut){
+  const p=curPrice();
+  const usd=totalIn/1e6*p.in + totalOut/1e6*p.out;
+  let html=`실제 사용 <span class="big">${fmtUsd(usd)}</span> ≈ <b>${fmtKrw(usd)}</b> (크레딧 ${usd.toFixed(4)})<br>`+
+           `<span style="color:var(--text3)">입력 ${totalIn.toLocaleString()} + 출력 ${totalOut.toLocaleString()} 토큰</span>`;
+  const bal=getBalance();
+  if(bal!==null){
+    const rem=Math.max(0,bal-usd);
+    document.getElementById('balance').value=rem.toFixed(4);
+    try{localStorage.setItem('alpha_balance',rem.toFixed(4));}catch(e){}
+    html+=`<br>남은 크레딧 <span class="big">${fmtUsd(rem)}</span> ≈ <b>${fmtKrw(rem)}</b>`;
+  }else{
+    html+=`<br><span style="color:var(--text3)">남은 크레딧을 보려면 위 '현재 잔액'에 콘솔 잔액을 입력하세요.</span>`;
+  }
+  const box=document.getElementById('actualBox');
+  box.innerHTML=html; box.classList.remove('hidden');
+  updateCostEstimate();
+}
+
+/* ══════════════ 생성 메인 ══════════════ */
+async function handleGenerate(){
+  const apiKey=(document.getElementById('apiKey').value||AUTO_KEY||'').trim();
+  const model=document.getElementById('model').value;
+  const N=Math.max(1,parseInt(document.getElementById('genCount').value)||30);
+  if(!apiKey){genStat('❌ Claude API 키를 입력하세요 (AI 설정 칸에 붙여넣기).','err');return;}
+  const prod=PRODUCTS[curProduct];
+
+  const shortCnt=Math.round(N*((parseInt(document.getElementById('shortRatio').value)||0)/100));
+  const genCnt=Math.max(0,N-shortCnt);
+  const btn=document.getElementById('btnGen'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span>&nbsp;생성 중...';
+  document.getElementById('progress').classList.add('show');
+  document.getElementById('genStatus').classList.add('hidden');
+  dickRecent=[];
+  const generated=[]; const seen=new Set();
+  let totalIn=0, totalOut=0;   // 실제 API 토큰 사용량 누적(재시도 포함)
+  const fail=[];
+  // 재시도 강화 프롬프트(2회차부터) — PowerShell try>0 보강과 동일
+  const REINFORCE = prod.type==='diet'
+    ? "\n절대 영어 단어를 쓰지 마라(GLP-1 등도 금지, 비만약은 '위고비'·'마운자로'만 한글로). 정력·발기·탈모 같은 이 제품과 무관한 단어, '지방분해/치료/완치/O kg 감량' 같은 의약품식 표현 금지. 실망·불만·'잘 모르겠다' 같은 부정·불확실 표현도 금지하고 긍정 후기로만 써라."
+    : "\n절대 영어 단어를 쓰지 마라. 전부 한글로만 써라. 탈모·치료·다이어트 등 이 제품과 무관한 단어는 쓰지 마라. 맛·향·냄새·식감(맛있다/쓰다/비리다/냄새 등) 평가도 한 마디도 쓰지 마라. 자녀·미성년이 이 제품을 먹는 설정은 절대 금지(먹는 사람은 성인 남성). '딸이 사줬다'는 설정도 금지.";
+  let made=0, guard=0; const maxGuard=genCnt*4+10;  // 부족분 재생성 루프(완전 동일/게이트 실패 시 새로). 무한루프 방지 상한.
+  setProg(0,genCnt,'AI 생성 준비...');
+  while(made<genCnt && guard<maxGuard){
+    guard++;
+    const r=rollRecipe(prod,SHORT_POOL,null);
+    // 최대 3회: 영어·금지어·맛·타인구매·비허용성분·아내비속어·찐빠 섞이면 재생성
+    let cleaned=''; let apiErr=false;
+    for(let attempt=0;attempt<3;attempt++){
+      try{
+        let sys=buildSystem(prod,r);
+        if(attempt>0)sys+=REINFORCE;
+        const resp=await callClaude(apiKey,model,sys,'위 시스템 지시(중심 소재·서술 방식·화자·말투)에 맞춰, 이 제품을 사 먹은 사람이 직접 쓴 새 구매 후기 하나를 자연스럽게 창작해라. 예시를 베끼지 말고 새로. 후기 본문만 출력.');
+        totalIn+=resp.inTok; totalOut+=resp.outTok;
+        cleaned=cleanOutput(resp.text,prod);
+        if(passesGates(cleaned,r,prod))break;   // 깨끗하면 통과(아니면 한 번 더)
+      }catch(e){ fail.push(e.message); apiErr=true; break; }
+    }
+    if(apiErr){ if(fail.length>=3)break; continue; }
+    if(!cleaned)continue;
+    // 후처리(게이트 검사 후) — PowerShell 루프 밖 처리와 동일 순서
+    let t=cleaned.replace(/[A-Za-z]+/g,'');                  // 그래도 남은 영어 제거
+    t=cleanOutput(t,prod);
+    if(r.dickRepl&&t.includes('고추'))t=t.replace(/고추/g,r.dickRepl);   // 남은 '고추' -> 이번 후기 지정 표현(정력 제품만, 다이어트는 dickRepl 없음)
+    t=trimLen(t,r.cap);
+    if(!r.useEupnida)t=t.replace(/읍니다/g,'습니다');         // 읍니다 미사용 페르소나면 환원
+    if(r.emo)t=t.replace(/[.!~…\s]+$/,'')+r.emo;             // 이모티콘 끝에 부착
+    t=applyMisspell(t,OPT.typo);                            // 맞춤법 오류 낮은 빈도 주입
+    if(!r.useEupnida)t=t.replace(/읍니다/g,'습니다');         // ★applyMisspell가 습니다->읍니다로 재유입할 수 있어 다시 환원(다이어트 등 읍니다 금지 보장)
+    t=insertAraeA(t,r.persona,OPT.typo,r.elderForce);       // 노년 특수 띄어쓰기(elderForce 강제)
+    const key=t.replace(/[\sㆍ]/g,'');                       // 완전 동일(띄어쓰기·ㆍ무시) 차단
+    if(key && !seen.has(key)){ seen.add(key); generated.push(t); made++; setProg(made,genCnt,`AI 생성 중... ${made}/${genCnt}`); }
+    // 중복이면 추가 안 함 -> while 루프가 새로 생성(guard 상한까지)
+  }
+  // 단문예시 20% (그대로)
+  const shorts=[]; for(let k=0;k<shortCnt;k++)shorts.push(pick(SHORT_POOL));
+  let all=arrangeSpaced([...generated,...shorts],3,prod.type==='diet');
+  genResults=all.map(t=>({text:t, isShort:SHORT_POOL.includes(t)}));
+
+  btn.disabled=false; btn.innerHTML='✨&nbsp;&nbsp;리뷰 생성하기';
+  if(fail.length>=3){ genStat('❌ API 오류로 중단됨: '+fail[0],'err'); document.getElementById('progress').classList.remove('show'); return; }
+  document.getElementById('progress').classList.remove('show');
+  renderResults();
+  applyActualCost(totalIn,totalOut);
+  genStat(`✅ 총 ${genResults.length}개 생성 완료 (AI ${generated.length} + 단문 ${shorts.length})`,'ok');
+}
+
+function setProg(done,total,txt){
+  document.getElementById('progFill').style.width=(total?done/total*100:0)+'%';
+  document.getElementById('progTxt').textContent=txt;
+}
+function genStat(msg,type){const el=document.getElementById('genStatus');el.className='status '+type;el.textContent=msg;el.classList.remove('hidden');}
+
+function renderResults(){
+  document.getElementById('resCard').classList.remove('hidden');
+  document.getElementById('resCount').textContent=`(${genResults.length}개)`;
+  const wrap=document.getElementById('resList'); wrap.innerHTML='';
+  genResults.forEach((r,i)=>{
+    const d=document.createElement('div'); d.className='rev-item';
+    d.innerHTML=`<span class="rev-num">${i+1}</span><span class="rev-tag ${r.isShort?'short':'gen'}">${r.isShort?'단문':'AI'}</span><span class="rev-txt"></span>`;
+    d.querySelector('.rev-txt').textContent=r.text;
+    wrap.appendChild(d);
+  });
+}
+function copyResults(){ navigator.clipboard.writeText(genResults.map(r=>r.text).join('\n')).then(()=>genStat('📋 클립보드에 복사했습니다.','ok')); }
+function downloadTxt(){
+  const blob=new Blob([genResults.map(r=>r.text).join('\n')],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`${PRODUCTS[curProduct].name}_생성리뷰_${genResults.length}개.txt`; a.click();
+}
+function sendToConverter(){
+  if(!genResults.length)return;
+  nvBulkData = genResults.map(r=>({content:r.text, rating:null}));
+  updateNvStats();
+  setProductCode(null,PRODUCTS[curProduct].code);
+  switchTab(2);
+  setStatus(`✅ 생성 탭에서 ${genResults.length}개 리뷰를 가져왔습니다. 설정 후 생성하기를 누르세요.`,'ok');
+  document.getElementById('statusEl').classList.remove('hidden');
+}
+
+/* ── 생성 탭 UI ── */
+function switchTab(n){
+  document.getElementById('tabBtn1').classList.toggle('active',n===1);
+  document.getElementById('tabBtn2').classList.toggle('active',n===2);
+  document.getElementById('pane1').classList.toggle('active',n===1);
+  document.getElementById('pane2').classList.toggle('active',n===2);
+  window.scrollTo(0,0);
+}
+function setOpt(k,v,el){ OPT[k]=v; el.parentElement.querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
+function renderProdBtns(){
+  const wrap=document.getElementById('prodBtns'); wrap.innerHTML='';
+  Object.entries(PRODUCTS).forEach(([key,p])=>{
+    const b=document.createElement('button'); b.className='prod-btn'+(key===curProduct?' selected':'');
+    b.textContent=p.name; b.onclick=()=>{curProduct=key; renderProdBtns();};
+    wrap.appendChild(b);
+  });
+  const add=document.createElement('button'); add.className='prod-btn addnew'; add.textContent='＋ 제품 추가';
+  add.title='HTML의 PRODUCTS 객체에 제품 설정을 추가하세요'; add.onclick=()=>alert("새 제품은 파일 안 PRODUCTS = {...} 에 객체 하나를 추가하면 자동으로 버튼이 생깁니다.\n(이름·성분·성기표현 등만 바꾸면 됨)");
+  wrap.appendChild(add);
+  updateProdUI();
+}
+function updateProdUI(){
+  const p=PRODUCTS[curProduct], diet=p.type==='diet';
+  document.getElementById('prodDesc').textContent=p.desc;
+  const sx=document.getElementById('segSex'); const row=sx&&sx.closest('.frow'); if(row)row.style.display=diet?'none':''; // 다이어트 제품은 '성적 표현 수위' 숨김
+}
+function loadShort(e){
+  const f=e.target.files[0]; if(!f)return;
+  const fr=new FileReader();
+  fr.onload=ev=>{ SHORT_POOL=ev.target.result.split('\n').map(s=>s.trim()).filter(s=>s&&s.length>=4); document.getElementById('shortName').textContent=f.name; updateShortCnt(); };
+  fr.readAsText(f,'UTF-8');
+}
+function updateShortCnt(){ document.getElementById('shortCnt').textContent=`${SHORT_POOL.length}개 로드됨 (이 중 '단문 리뷰 비율'만큼 토시 그대로 삽입)`; }
+
+/* ══════════════════════════════════════════════════════════════
+   ↓↓↓ 아래는 기존 '업로드 변환기' 로직 (그대로) ↓↓↓
+   ══════════════════════════════════════════════════════════════ */
+const SURNAMES=[["김",.21507],["이",.147],["박",.08434],["최",.04695],["정",.04329],["강",.02368],["조",.02124],["윤",.02124],["장",.02024],["임",.01724],["한",.01561],["오",.01556],["서",.01521],["신",.01452],["권",.01408],["황",.01406],["안",.01285],["송",.01243],["류",.01185],["전",.01014],["홍",.00964],["고",.00939],["문",.00865],["양",.00855],["손",.00822],["배",.00821],["백",.00712],["허",.00703],["유",.0068],["남",.00609],["심",.00576],["노",.00564],["하",.00546],["곽",.00493],["성",.00468],["차",.00452],["주",.00437],["우",.00428],["구",.00394],["민",.00361],["나",.00349],["진",.00336],["지",.00327],["엄",.00306],["원",.00261],["채",.00258],["천",.00237],["방",.00235],["공",.00225],["현",.00224]];
+const DEFAULT_REVIEWS=`[빠른 리뷰] 만족해요. 꽤 좋은 선택이었던 것 같아요.👍 감사합니다!
+[빠른 리뷰] 만족할 만큼 좋은 상품이에요😊 감사합니다.
+[빠른 리뷰] 잘 산 것 같아 기분이 좋아요 👍👍`;
+let lastResult=null, lastCfg=null, nvId=0, dlMode='count', dateMode='start';
+let nvBulkData=[];
+
+window.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('reviews').value=DEFAULT_REVIEWS;
+  updateRCount(); addTz('00:00','07:00'); addTz('23:00','23:59'); updateEst();
+  const sl=document.getElementById('surnameRatio');
+  sl.addEventListener('input',()=>{document.getElementById('srVal').textContent=sl.value+'%';document.getElementById('srLabel').textContent=sl.value+'%';updateNvStats();});
+  ['minPerDay','maxPerDay'].forEach(id=>document.getElementById(id).addEventListener('input',updateEst));
+  document.getElementById('mainDate').addEventListener('input',updateEst);
+  document.getElementById('reviews').addEventListener('input',updateRCount);
+  document.getElementById('genCount').addEventListener('input',e=>{document.getElementById('cntLbl').textContent=(e.target.value||30)+'개';updateCostEstimate();});
+  // 단문 비율 슬라이더
+  const sr=document.getElementById('shortRatio');
+  sr.addEventListener('input',()=>{const v=sr.value+'%';document.getElementById('shortRatioVal').textContent=v;document.getElementById('shortRatioLbl').textContent=v;updateCostEstimate();});
+  // 모델 변경 시 예상 비용 갱신
+  document.getElementById('model').addEventListener('change',updateCostEstimate);
+  // 잔액 복원
+  try{const b=localStorage.getItem('alpha_balance'); if(b)document.getElementById('balance').value=b;}catch(e){}
+  renderProdBtns(); updateShortCnt(); updateCostEstimate();
+  // API 키 자동 로드: 우선 localStorage → 그 다음 폴더의 '클로드 api키.txt'(있으면 덮어씀)
+  const apiKeyEl=document.getElementById('apiKey');
+  apiKeyEl.addEventListener('input',()=>{AUTO_KEY=apiKeyEl.value.trim();try{localStorage.setItem('alpha_apikey',AUTO_KEY);}catch(e){}});
+  try{const k=localStorage.getItem('alpha_apikey'); if(k){AUTO_KEY=k;apiKeyEl.value=k;}}catch(e){}
+  fetch('클로드 api키.txt',{cache:'no-store'}).then(r=>r.ok?r.text():'').then(t=>{
+    const k=(t||'').replace(/^﻿/,'').trim();
+    if(k){ AUTO_KEY=k; apiKeyEl.value=k; try{localStorage.setItem('alpha_apikey',k);}catch(e){}
+      const h=document.getElementById('apiKeyHint'); if(h)h.innerHTML="✅ '클로드 api키.txt'에서 키를 자동으로 불러왔습니다(이 PC).";
+    }
+  }).catch(()=>{});
+});
+
+function addTz(s='01:00',e='06:00'){const li=document.createElement('div');li.className='tz-item';li.innerHTML=`<input type="time" value="${s}"><span class="tz-sep">부터</span><input type="time" value="${e}"><span class="tz-sep">까지 금지</span><button class="btn-del" onclick="this.parentElement.remove()">×</button>`;document.getElementById('tzList').appendChild(li);}
+function getTz(){return [...document.querySelectorAll('#tzList .tz-item')].map(el=>{const[a,b]=el.querySelectorAll('input[type=time]');return[a.value,b.value];}).filter(([a,b])=>a&&b);}
+function loadFile(e){const f=e.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=ev=>{document.getElementById('reviews').value=ev.target.result.trim();document.getElementById('fname').textContent=f.name;updateRCount();};fr.readAsText(f,'UTF-8');}
+function getQuickReviews(){return document.getElementById('reviews').value.split('\n').map(l=>l.trim()).filter(Boolean);}
+function updateRCount(){document.getElementById('rCount').textContent=`${getQuickReviews().length}개 로드됨`;}
+function addNv(content='',rating=''){const id=++nvId;const item=document.createElement('div');item.className='nv-item';item.dataset.id=id;item.innerHTML=`<span class="nv-num" id="nn${id}">-</span><input type="text" class="nv-text" value="${esc(content)}" placeholder="리뷰 내용..."><select class="nv-sel" id="ns${id}" onchange="onNvSelChange(${id})"><option value="">자동 ⚙️</option><option value="5" ${rating==='5'?'selected':''}>5점 ★★★★★</option><option value="4" ${rating==='4'?'selected':''}>4점 ★★★★</option></select><button class="btn-del" onclick="removeNv(${id})">×</button>`;document.getElementById('nvList').appendChild(item);if(rating)onNvSelChange(id);reNumNv();updateNvStats();}
+function onNvSelChange(id){const sel=document.getElementById('ns'+id);sel.className='nv-sel '+(sel.value==='5'?'r5':sel.value==='4'?'r4':'');updateNvStats();}
+function removeNv(id){document.querySelector(`.nv-item[data-id="${id}"]`)?.remove();reNumNv();updateNvStats();}
+function reNumNv(){document.querySelectorAll('.nv-item').forEach((el,i)=>{const n=el.querySelector('.nv-num');if(n)n.textContent=i+1;});}
+function updateNvStats(){const items=[...document.querySelectorAll('.nv-item')];const domTotal=items.length;const domFixed=items.filter(el=>el.querySelector('.nv-sel').value).length;const bulkTotal=nvBulkData.length;const bulkFixed=nvBulkData.filter(r=>r.rating!==null).length;const total=domTotal+bulkTotal;const isEmpty=total===0;document.getElementById('nvEmpty').classList.toggle('hidden',!isEmpty);document.getElementById('nvFooter').classList.toggle('hidden',domTotal===0);document.getElementById('nvBulkRow').classList.toggle('hidden',bulkTotal===0);if(domTotal>0){document.getElementById('nvTotal').textContent=domTotal;document.getElementById('nvFixed').textContent=domFixed;document.getElementById('nvAuto').textContent=domTotal-domFixed;}if(bulkTotal>0){document.getElementById('nvBulkCount').textContent=bulkTotal.toLocaleString();document.getElementById('nvBulkFixed').textContent=`(고정 ${bulkFixed} / 자동 ${bulkTotal-bulkFixed})`;}if(!isEmpty){const sr=+document.getElementById('surnameRatio').value/100;const nS=Math.round(total*sr);const estEl=document.getElementById('nvEst');if(estEl)estEl.textContent=`→ 총 ${(total+nS).toLocaleString()}개 (성씨 +${nS})`;}updateEst();}
+function getNvReviews(){const domItems=[...document.querySelectorAll('.nv-item')].map(el=>({content:el.querySelector('.nv-text').value.trim(),rating:el.querySelector('.nv-sel').value?parseInt(el.querySelector('.nv-sel').value):null})).filter(r=>r.content.length>0);return [...domItems,...nvBulkData];}
+function clearNvBulk(){nvBulkData=[];updateNvStats();}
+function parseNvLines(text){nvBulkData=[];text.split('\n').map(l=>l.trim()).filter(Boolean).forEach(line=>{if(/^번호[\t\s]/.test(line))return;const mB=line.match(/^([45]):/);if(mB){const c=line.slice(2).trim();if(c)nvBulkData.push({content:c,rating:parseInt(mB[1])});return;}const cleanLine=line.replace(/^["]+/,'').replace(/["]+$/,'').trim();const lastItem=nvBulkData[nvBulkData.length-1];if(lastItem&&lastItem.rating!==null&&cleanLine){lastItem.content+=' '+cleanLine;}else if(cleanLine){nvBulkData.push({content:cleanLine,rating:null});}});nvBulkData=nvBulkData.map(item=>({...item,content:item.content.replace(/""/g,'"').replace(/\s*["]*\(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} 에 등록된 네이버 페이 구매평\)["]*\s*/g,'').replace(/["]+$/,'').trim()})).filter(item=>item.content.length>0);updateNvStats();}
+function loadNvFile(event){const f=event.target.files[0];if(!f)return;if(f.name.toLowerCase().endsWith('.xlsx')){const fr=new FileReader();fr.onload=ev=>parseNvXlsx(ev.target.result);fr.readAsArrayBuffer(f);}else{const fr=new FileReader();fr.onload=ev=>parseNvLines(ev.target.result);fr.readAsText(f,'UTF-8');}event.target.value='';}
+function parseNvXlsx(arrayBuffer){const wb=XLSX.read(new Uint8Array(arrayBuffer),{type:'array'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});if(!rows.length){nvBulkData=[];updateNvStats();return;}const starKw=/(별점|평점|만족도|rating|점수|score|stars?)/i;const contentKw=/(리뷰내용|리뷰|내용|후기|content|review)/i;let starCol=-1,contentCol=-1,startRow=0;for(let ri=0;ri<Math.min(3,rows.length);ri++){const hdr=rows[ri].map(c=>String(c).trim());let sc=-1,cc=-1;for(let i=0;i<hdr.length;i++){if(starKw.test(hdr[i])&&sc===-1)sc=i;if(contentKw.test(hdr[i])&&cc===-1)cc=i;}if(sc!==-1||cc!==-1){starCol=sc;contentCol=cc;startRow=ri+1;break;}}nvBulkData=[];for(let ri=startRow;ri<rows.length;ri++){const row=rows[ri];if(!row||row.every(c=>!String(c).trim()))continue;let rating=5;if(starCol!==-1){const sv=String(row[starCol]).trim();const sn=parseInt(sv);if(!isNaN(sn)&&sn>=1&&sn<=5){rating=sn;}else{const sc=[...sv].filter(ch=>{const cp=ch.codePointAt(0);return cp>0x2600&&cp!==0xFE0F;}).length;if(sc>0)rating=Math.min(5,sc);}}let content='';if(contentCol!==-1){content=String(row[contentCol]).trim();}else{for(let i=row.length-1;i>=0;i--){const v=String(row[i]).trim();if(v){content=v;break;}}}if(content.includes('\t'))content=content.replace(/^[^\t]+\t/,'');if(content)nvBulkData.push({content,rating});}nvBulkData=nvBulkData.map(item=>({...item,content:item.content.replace(/\r?\n/g,' ').replace(/""/g,'"').replace(/\s*["]*\(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} 에 등록된 네이버 페이 구매평\)["]*\s*/g,'').replace(/["]+$/,'').trim()})).filter(item=>item.content.length>4);updateNvStats();}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function setProductCode(el,code){document.getElementById('productCode').value=code;document.querySelectorAll('#dlCard .prod-btn').forEach(b=>b.classList.remove('selected'));if(el)el.classList.add('selected');updateDlInfo();}
+function onProductInput(){document.querySelectorAll('#dlCard .prod-btn').forEach(b=>b.classList.remove('selected'));updateDlInfo();}
+function onDragOver(e,zoneId){e.preventDefault();e.dataTransfer.dropEffect='copy';document.getElementById(zoneId).classList.add('drop-active');}
+function onDragLeave(e,zoneId){if(e.relatedTarget&&document.getElementById(zoneId).contains(e.relatedTarget))return;document.getElementById(zoneId).classList.remove('drop-active');}
+function onDrop(e,type){e.preventDefault();const zoneId=type==='nv'?'nvDropZone':'qrDropZone';document.getElementById(zoneId).classList.remove('drop-active');const file=e.dataTransfer.files[0];if(!file)return;const nm=file.name.toLowerCase();if(type==='nv'){if(nm.endsWith('.xlsx')){const fr=new FileReader();fr.onload=ev=>parseNvXlsx(ev.target.result);fr.readAsArrayBuffer(file);}else if(nm.endsWith('.txt')){const fr=new FileReader();fr.onload=ev=>parseNvLines(ev.target.result);fr.readAsText(file,'UTF-8');}else{setStatus('❌ .xlsx 또는 .txt 만 가능','err');}}else{if(!nm.endsWith('.txt')){setStatus('❌ .txt 만 가능','err');return;}const fr=new FileReader();fr.onload=ev=>{document.getElementById('reviews').value=ev.target.result.trim();document.getElementById('fname').textContent=file.name;updateRCount();};fr.readAsText(file,'UTF-8');}}
+function setDateMode(m){dateMode=m;document.getElementById('segDStart').classList.toggle('active',m==='start');document.getElementById('segDEnd').classList.toggle('active',m==='end');document.getElementById('dateModeHint').textContent=m==='start'?'이 날짜부터 앞으로 생성':'이 날짜까지 거꾸로 생성';updateEst();}
+function updateEst(){const nN=getNvReviews().length;const sr=+document.getElementById('surnameRatio').value/100;const total=nN+Math.round(nN*sr);const mn=+document.getElementById('minPerDay').value||4;const mx=+document.getElementById('maxPerDay').value||7;if(!nN){document.getElementById('estHint').textContent='네이버 리뷰를 추가하면 예상 기간이 표시됩니다';return;}const days=Math.ceil(total/((mn+mx)/2));const label=dateMode==='end'?'종료일로부터 약':'시작일로부터 약';document.getElementById('estHint').textContent=`총 ${total.toLocaleString()}개 · ${label} ${days.toLocaleString()}일`;}
+function tToMin(s){const[h,m]=s.split(':').map(Number);return h*60+(m||0);}
+function getWindows(tzs){if(!tzs.length)return[[0,1440]];const fbd=tzs.map(([s,e])=>{let sm=tToMin(s),em=tToMin(e);if(em===0)em=1440;if(em<=sm)em=sm+1;return[sm,Math.min(em,1440)];}).sort((a,b)=>a[0]-b[0]);const mg=[];for(const[s,e]of fbd){if(mg.length&&s<=mg[mg.length-1][1])mg[mg.length-1][1]=Math.max(mg[mg.length-1][1],e);else mg.push([s,e]);}const al=[];let prev=0;for(const[s,e]of mg){if(prev<s)al.push([prev,s]);prev=e;}if(prev<1440)al.push([prev,1440]);return al;}
+function randTime(ws){const tot=ws.reduce((a,[s,e])=>a+(e-s),0);let r=Math.floor(Math.random()*tot);for(const[s,e]of ws){const sp=e-s;if(r<sp){const c=s+r;return`${String(Math.floor(c/60)).padStart(2,'0')}:${String(c%60).padStart(2,'0')}:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`;}r-=sp;}return'08:00:00';}
+function pickSur(){const tot=SURNAMES.reduce((a,[,w])=>a+w,0);let r=Math.random()*tot;for(const[n,w]of SURNAMES){r-=w;if(r<=0)return n;}return'김';}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function genDates(start,tot,mn,mx,endDate){if(endDate){const days=[];const cur=new Date(endDate+'T00:00:00');let rem=tot;while(rem>0){const c=Math.min(mn+Math.floor(Math.random()*(mx-mn+1)),rem);days.push({d:new Date(cur),c});rem-=c;cur.setDate(cur.getDate()-1);}days.reverse();const res=[];for(const{d,c}of days)for(let i=0;i<c;i++)res.push(new Date(d));return res;}const res=[],cur=new Date(start+'T00:00:00');while(res.length<tot){const c=Math.min(mn+Math.floor(Math.random()*(mx-mn+1)),tot-res.length);for(let i=0;i<c;i++)res.push(new Date(cur));cur.setDate(cur.getDate()+1);}return res;}
+function generate(cfg){const{start,endDate,sRatio,mn,mx,tMn,tMx,tzs,quickReviews,naverReviews}=cfg;if(!quickReviews.length)throw new Error('성씨 리뷰(빠른리뷰) 내용이 비어 있습니다.');if(!naverReviews.length)throw new Error('네이버 페이 구** 리뷰가 비어 있습니다.');const ws=getWindows(tzs);if(!ws.length)throw new Error('허용 시간대가 없습니다.');const nN=naverReviews.length;const nS_init=Math.round(nN*sRatio);const dates=genDates(start,nN+nS_init,mn,mx,endDate);const dg=new Map();for(const d of dates){const k=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;dg.set(k,(dg.get(k)||0)+1);}const sortedDays=[...dg].map(([k,c])=>[k,c]).sort((a,b)=>a[0].localeCompare(b[0]));const numDays=sortedDays.length;const nS=Math.max(nS_init,numDays);if(nS>nS_init){const boostOrder=shuffle([...Array(numDays).keys()]);for(let i=0;i<nS-nS_init;i++){const di=boostOrder[i%numDays];sortedDays[di]=[sortedDays[di][0],sortedDays[di][1]+1];}}const total=nN+nS;const nvSlots=shuffle([...naverReviews]);const fixedSum=nvSlots.reduce((s,r)=>s+(r.rating!==null?r.rating:0),0);const nFixed=nvSlots.filter(r=>r.rating!==null).length;const nAutoNv=nN-nFixed;const nFree=nS+nAutoNv;const targetAvg=tMn+Math.random()*(tMx-tMn);const targetSum=Math.round(total*targetAvg);const avgFreeC=Math.max(4.01,Math.min(4.99,nFree>0?(targetSum-fixedSum)/nFree:4.875));const n5Free=Math.max(0,Math.min(nFree,Math.round(nFree*(avgFreeC-4))));const freePool=shuffle([...Array(n5Free).fill(5),...Array(nFree-n5Free).fill(4)]);const surPool=freePool.slice(0,nS);const autoNvPool=freePool.slice(nS);let autoIdx=0;const nvRatings=nvSlots.map(r=>r.rating!==null?r.rating:autoNvPool[autoIdx++]);const daySCounts=Array(numDays).fill(0);let remS=nS;const idxShuf=shuffle([...Array(numDays).keys()]);for(const di of idxShuf){if(remS<=0)break;daySCounts[di]=1;remS--;}for(const di of shuffle([...idxShuf])){if(remS<=0)break;const canAdd=sortedDays[di][1]-daySCounts[di]-1;if(canAdd>0){const add=Math.min(1+Math.floor(Math.random()*canAdd),remS);daySCounts[di]+=add;remS-=add;}}for(const di of idxShuf){if(remS<=0)break;const canAdd=sortedDays[di][1]-daySCounts[di];if(canAdd>0){const add=Math.min(canAdd,remS);daySCounts[di]+=add;remS-=add;}}const daySlices=sortedDays.map(([,dc],di)=>shuffle([...Array(daySCounts[di]).fill(true),...Array(dc-daySCounts[di]).fill(false)]));const recs=[];let surIdx=0,navIdx=0;for(let di=0;di<numDays;di++){const[dk,dc]=sortedDays[di];const types=daySlices[di];const times=Array.from({length:dc},()=>randTime(ws)).sort();const ds=`${dk.slice(0,4)}-${dk.slice(4,6)}-${dk.slice(6,8)}`;for(let i=0;i<dc;i++){const isSur=types[i];const t=times[i];let name,rating,content,isFixed=false;if(isSur){name=pickSur()+'**';rating=surPool[surIdx++];content=quickReviews[Math.floor(Math.random()*quickReviews.length)];}else{const nvRev=nvSlots[navIdx];isFixed=nvRev.rating!==null;rating=nvRatings[navIdx++];name='네이버 페이 구**';content=`${nvRev.content}(${ds} ${t} 에 등록된 네이버 페이 구매평)`;}recs.push({no:recs.length+1,dNum:+dk,ds,t,name,isSur,rating,isFixed,content});}}const real=recs.reduce((a,r)=>a+r.rating,0)/recs.length;return{recs,real,nS,nN,days:numDays,nFixed,nAutoNv};}
+function getCfg(){return{start:dateMode==='start'?(document.getElementById('mainDate').value||'2026-05-20'):null,endDate:dateMode==='end'?(document.getElementById('mainDate').value||'2026-05-20'):null,sRatio:+document.getElementById('surnameRatio').value/100,mn:+document.getElementById('minPerDay').value||4,mx:+document.getElementById('maxPerDay').value||7,tMn:+document.getElementById('tMin').value||4.85,tMx:+document.getElementById('tMax').value||4.90,tzs:getTz(),quickReviews:getQuickReviews(),naverReviews:getNvReviews()};}
+function setStatus(msg,type){const el=document.getElementById('statusEl');el.className=`status ${type}`;el.textContent=msg;el.classList.remove('hidden');}
+async function handleGen(){const btn=document.getElementById('btnGen2');btn.disabled=true;btn.innerHTML='<span class="spinner"></span>&nbsp;생성 중...';setStatus('리뷰 데이터를 생성하는 중...','loading');['statsCard','prevCard','dlCard'].forEach(id=>document.getElementById(id).classList.add('hidden'));await new Promise(r=>setTimeout(r,60));try{const cfg=getCfg();const t0=performance.now();const res=generate(cfg);const ms=((performance.now()-t0)/1000).toFixed(2);lastResult=res;lastCfg=cfg;renderStats(res,cfg);renderPreview(res.recs);['statsCard','prevCard','dlCard'].forEach(id=>document.getElementById(id).classList.remove('hidden'));updateDlInfo();setStatus(`✅ ${res.recs.length.toLocaleString()}개 생성 완료 (${ms}초) | 평균 평점 ${res.real.toFixed(4)}`,'ok');}catch(e){setStatus('❌ 오류: '+e.message,'err');}finally{btn.disabled=false;btn.innerHTML='🚀&nbsp;&nbsp;생성하기';}}
+function setDlMode(m){dlMode=m;document.getElementById('segCount').classList.toggle('active',m==='count');document.getElementById('segDay').classList.toggle('active',m==='day');document.getElementById('batchRow').classList.toggle('hidden',m==='day');updateDlInfo();}
+function updateDlInfo(){if(!lastResult)return;const total=lastResult.recs.length;let files,desc;if(dlMode==='day'){files=lastResult.days;desc=`총 ${total.toLocaleString()}개 → 일별 분리 → 📁 ${files}개 파일`;}else{const batch=Math.max(1,parseInt(document.getElementById('batchSize').value)||100);files=Math.ceil(total/batch);desc=`총 ${total.toLocaleString()}개 ÷ ${batch}개씩 = 📁 ${files}개 파일`;}document.getElementById('dlInfo').textContent=desc;}
+async function handleDl(){if(!lastResult)return;const btn=document.getElementById('btnDl');btn.disabled=true;btn.innerHTML='⏳&nbsp;압축 중...';try{const productCode=(document.getElementById('productCode').value.trim()||'P000000X');const recs=lastResult.recs;let chunks,fileNames;if(dlMode==='day'){const dayMap=new Map();for(const r of recs){if(!dayMap.has(r.ds))dayMap.set(r.ds,[]);dayMap.get(r.ds).push(r);}const keys=[...dayMap.keys()].sort();chunks=keys.map(k=>dayMap.get(k));const pad=String(keys.length).length;fileNames=keys.map((k,i)=>`${String(i+1).padStart(pad,'0')}_${k.replace(/-/g,'')}_${productCode}.xlsx`);}else{const batchSize=Math.max(1,parseInt(document.getElementById('batchSize').value)||100);chunks=[];for(let f=0;f<recs.length;f+=batchSize)chunks.push(recs.slice(f,f+batchSize));const pad=String(chunks.length).length;fileNames=chunks.map((_,i)=>`${String(i+1).padStart(pad,'0')}_${productCode}.xlsx`);}const ROW1=['[필수] 일괄 업로드 시 최대 100개 가능',"[필수]'일반', 'SNS' 둘 중 하나",'[필수]cafe24상에서 사용하는 상품코드',null,'[필수]YYYYMMDD 형식','[필수]','[필수]',"리뷰종류가 'SNS'일 때만 필수",'[필수]1~5점 사이','[필수]','리뷰이미지 URL주소',null,null,null,null,'동영상 URL주소'];const ROW2=['번호','리뷰종류','상품코드','상품옵션','작성일','작성자이름','작성자ID','SNSID','만족도','리뷰내용','사진첨부1','사진첨부2','사진첨부3','사진첨부4','사진첨부5','동영상첨부1'];const COLS=[{wch:6},{wch:8},{wch:14},{wch:10},{wch:11},{wch:16},{wch:8},{wch:8},{wch:6},{wch:82},{wch:6},{wch:6},{wch:6},{wch:6},{wch:6},{wch:10}];const zip=new JSZip();for(let i=0;i<chunks.length;i++){const chunk=chunks[i];const rows=[ROW1,ROW2,...chunk.map((r,j)=>[j+1,'일반',productCode,null,+r.ds.replace(/-/g,''),r.name,'alpha',null,r.rating,r.content,null,null,null,null,null,null])];const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=COLS;const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'alphareview_review_upload_form');zip.file(fileNames[i],XLSX.write(wb,{type:'array',bookType:'xlsx'}));}btn.innerHTML='⏳&nbsp;ZIP 생성 중...';const blob=await zip.generateAsync({type:'blob',compression:'DEFLATE'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`리뷰_${productCode}_${chunks.length}개파일.zip`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);setStatus(`✅ ${chunks.length}개 파일 ZIP 다운로드 완료`,'ok');}catch(e){setStatus('❌ 다운로드 오류: '+e.message,'err');}finally{btn.disabled=false;btn.innerHTML='💾&nbsp;&nbsp;Excel ZIP 다운로드';}}
+function renderStats(res,cfg){const{recs,real,nS,nN,days,nFixed,nAutoNv}=res;const c5=recs.filter(r=>r.rating===5).length,c4=recs.length-c5;const p5=(c5/recs.length*100).toFixed(1),p4=(c4/recs.length*100).toFixed(1);document.getElementById('statsGrid').innerHTML=`<div class="stat"><div class="ic">📋</div><div class="val">${recs.length.toLocaleString()}</div><div class="lbl">총 리뷰</div></div><div class="stat"><div class="ic">⭐</div><div class="val">${real.toFixed(4)}</div><div class="lbl">평균 평점</div></div><div class="stat"><div class="ic">👤</div><div class="val">${nS.toLocaleString()}</div><div class="lbl">성씨 리뷰</div><div class="sub">${(nS/recs.length*100).toFixed(0)}%</div></div><div class="stat"><div class="ic">🛒</div><div class="val">${nN.toLocaleString()}</div><div class="lbl">네이버</div><div class="sub">${(nN/recs.length*100).toFixed(0)}%</div></div><div class="stat"><div class="ic">📅</div><div class="val">${days}</div><div class="lbl">사용 날짜</div></div>`;document.getElementById('bar5').style.width=p5+'%';document.getElementById('bar4').style.width=p4+'%';document.getElementById('pct5').textContent=p5+'%';document.getElementById('pct4').textContent=p4+'%';document.getElementById('period').textContent=`📅 ${recs[0].ds} ~ ${recs[recs.length-1].ds}`;}
+function renderPreview(recs){const tb=document.getElementById('prevBody');tb.innerHTML='';recs.slice(0,15).forEach(r=>{const tr=document.createElement('tr');const ct=r.content.length>42?r.content.slice(0,42)+'…':r.content;const ratingBadge=r.isFixed?`<span class="${r.rating===5?'r5f':'r4f'}">${r.rating}점 🔒</span>`:`<span class="${r.rating===5?'r5':'r4'}">${r.rating}점</span>`;tr.innerHTML=`<td>${r.no}</td><td>${r.ds}</td><td style="font-family:monospace;font-size:11px">${r.t}</td><td><span class="tag ${r.isSur?'s':'n'}">${r.name}</span></td><td>${ratingBadge}</td><td style="font-size:11px;color:var(--text3)">${r.isSur?'성씨':r.isFixed?'고정':'자동'}</td><td class="ct" title="${r.content.replace(/"/g,'&quot;')}">${ct}</td>`;tb.appendChild(tr);});}
+</script>
+</body>
+</html>
